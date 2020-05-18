@@ -25,7 +25,11 @@ def main():
 
 	print("Starting the loop for checking time and running all the steps...")
 	while True:
-		if (datetime.today().weekday() in DAYS_WHEN_RUN):
+		if (datetime.today().weekday() not in DAYS_WHEN_RUN):
+			sleep_minutes = (24 - datetime.now().hour) * 60
+			print("It seems that this isn't supposed to run today. Sleeping for " + str(sleep_minutes) )
+			sleep(sleep_minutes * 60)
+		else:
 			print("It seems today is a weekday, let's run!")
 			if len(hour_queue) == 0:
 				print("It seems that the queue for hours is not initialized. Let's initialize.")
@@ -265,3 +269,5 @@ def as_stock(dict):
 #	data = json.load(f)
 
 ###################################
+
+main()

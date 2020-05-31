@@ -18,6 +18,7 @@ AMZN
 TSLA
 ZS
 SHOP
+NFLX
 #
 
 #SP500

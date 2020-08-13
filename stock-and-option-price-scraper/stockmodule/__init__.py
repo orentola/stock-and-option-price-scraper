@@ -4,6 +4,9 @@ import os
 import copy
 import pytz
 import json
+import math
+
+import matplotlib.pyplot as plt
 
 from json import JSONEncoder
 from datetime import datetime
@@ -248,20 +251,84 @@ class Stock:
 			return json.dumps(self, default=lambda o: o.to_json(), sort_keys=True)
 
 class Volatility:
-	def __init__(self):
-		pass
+	def __init__(self, s):
+		self.price_history_raw = s.stock_price_history[ ["Close", "Open"] ].sort_index(ascending=True)
+		
+		self._initialize()
 
-	def get_annualized(self):
-		pass
+	def _initialize(self):
+		self.price_history_daily = self.price_history_raw.copy(deep=True).drop(["Open"])
+		self.price_history_daily["tomorrows_close"] = self.price_history_daily["Close"].shift(-1)
+		self.price_history_daily["daily_change"] = self.price_history_daily.apply(lambda row: (row["tomorrows_close"] - row["Close"]) / row["Close"], axis=1 )
+		self.price_history_daily.drop(["tomorrows_close"], inplace=True)
+		self.price_history_daily.dropna(inplace=True)
+		
+		temp_monthly_df = self.price_history_raw.copy(deep=True) 
+		temp_monthly_df["is_month_end"] = self.price_history_raw.index.is_month_end
+		self.price_history_monthly = temp_monthly_df[temp_monthly_df.is_month_end == True]
+		self.price_history_monthly["next_months_close"] = self.price_history_monthly.shift(-1)
+		self.price_history_monthly["monthly_change"] = self.price_history_monthly.apply(lambda row: (row["next_months_close"] - row["Close"]) / row["Close"], axis=1 )
+		self.price_history_monthly.dropna(inplace=True)
 
-	def get_daily(self):
-		pass
+	def get_annualized(self, last_days=None):
+		# Assumes that price_history is by day
+		if last_days == None:
+			return self.price_history_daily["daily_change"].std() * math.sqrt(252)
+		
+		# Return the annualized volatility based on last_days number of days. 
+		# Assumes the data is sorted ascending
+		return self.price_history_daily.tail(last_days)["daily_change"].std() * math.sqrt(252)
+		
+	def get_daily(self, last_days=None):
+		if last_days == None:
+			return self.price_history_daily["daily_change"].std()
+		
+		return self.price_history_daily.tail(last_days).std()
 
-	def get_monthly(self):
-		pass
+	def get_monthly(self, last_periods=None, daily_scaled=True):
+		if daily_scaled == True:
+			# Assumes that price_history is by day
+			# Assumes 21 trading days
 
+			if last_periods == None:
+				return self.price_history_daily["daily_change"].std() * math.sqrt(21)
+		
+			# Return the annualized volatility based on last_days number of days. 
+			# Assumes the data is sorted ascending
+			return self.price_history_daily.tail(last_periods)["daily_change"].std() * math.sqrt(21)
+		
+		if last_periods == None:
+			return self.price_history_monthly["monthly_change"].std()
+		return self.price_history_monthly["monthly_change"].tail(last_periods).std()
+		
 	def get_weekly(self):
+		# Assumes that price_history is by day
+		# Assumes 5 trading days
+
+		if last_days == None:
+			return self.price_history_daily["Close"].std() * math.sqrt(5)
+		
+		# Return the annualized volatility based on last_days number of days. 
+		# Assumes the data is sorted ascending
+		return self.price_history_daily.tail(last_days)["Close"].std() * math.sqrt(5)
+
+	def	get_realized_volatility(self, period_type, periods):
+		# daily, weekly, monthly, yearly
+		if period_type == 'daily':
+			return self.price_history.tail(periods).std()
+
+		if period_type == 'weekly':
+			return None
+
+		if period_type == 'monthly':
+			return self.price_history_monthly.tail(periods).std()
+	
+	def get_moving_average(self):
 		pass
 
-	def get_moving_average(self):
+	def plot_histogram(self):
+		self.price_history.hist(column="daily_change", bins=round(self.price_history.shape[0]/20, 1))
+		plt.show()
+
+	def plot(self):
 		pass

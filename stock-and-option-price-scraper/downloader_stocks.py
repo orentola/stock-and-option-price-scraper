@@ -26,12 +26,6 @@ DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\"
 # right now implemented in a bad way
 RUN_ONCE = True
 
-# Code for loading the stock data from json
-# path = path
-# with open(path, "r") as f:
-#	data = json.load(f)
-# s = Stock.from_dict(data['TICKER'])
-
 def main():
 	print("Starting the run with ticker list: " + TICKER_LIST_NAME)
 	d = Downloader(TICKER_LIST_NAME)

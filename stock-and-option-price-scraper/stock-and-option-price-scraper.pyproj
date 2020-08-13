@@ -22,10 +22,16 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="downloader.py">
+    <Compile Include="downloader_stocks.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="downloader_options.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="stockmodule\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="stock_price_analyzer.py">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

@@ -6,6 +6,8 @@ import pytz
 import json
 import math
 
+from statsmodels.graphics.tsaplots import plot_acf
+
 import matplotlib.pyplot as plt
 
 from json import JSONEncoder
@@ -250,85 +252,137 @@ class Stock:
 			# especially problematic: isinstance(n.option_chains[0].calls, pd.DataFrame)
 			return json.dumps(self, default=lambda o: o.to_json(), sort_keys=True)
 
+def double_result_decorator(f):
+	def wrapper(*args):
+		value = f(*args)
+		return round(value * 100, 2)
+
+	return wrapper
+
 class Volatility:
-	def __init__(self, s):
-		self.price_history_raw = s.stock_price_history[ ["Close", "Open"] ].sort_index(ascending=True)
-		
+	def __init__(self, series, series_data_field="close", type="daily"):
+		# Assumes DF with index as a date or something that can be ordered
+		# Input must be a dataframe with index of something to be sorted, the value with the 'series_name' 
+		self.time_series_daily = series.copy(deep=True)
+		self.time_series_daily_log = None
+		self.time_series_monthly = None
+		self.series_data_field = series_data_field
+		self.type = type
+
 		self._initialize()
 
 	def _initialize(self):
-		self.price_history_daily = self.price_history_raw.copy(deep=True).drop(["Open"])
-		self.price_history_daily["tomorrows_close"] = self.price_history_daily["Close"].shift(-1)
-		self.price_history_daily["daily_change"] = self.price_history_daily.apply(lambda row: (row["tomorrows_close"] - row["Close"]) / row["Close"], axis=1 )
-		self.price_history_daily.drop(["tomorrows_close"], inplace=True)
-		self.price_history_daily.dropna(inplace=True)
+		self.time_series_daily["tomorrows_close"] = self.time_series_daily[self.series_data_field].shift(-1)
+		self.time_series_daily["change"] = self.time_series_daily.apply(lambda row: (row["tomorrows_close"] - row[self.series_data_field]) / row[self.series_data_field], axis=1 )
+		self.time_series_daily.drop(["tomorrows_close"], inplace=True, axis=1)
+		self.time_series_daily.dropna(inplace=True)
 		
-		temp_monthly_df = self.price_history_raw.copy(deep=True) 
-		temp_monthly_df["is_month_end"] = self.price_history_raw.index.is_month_end
-		self.price_history_monthly = temp_monthly_df[temp_monthly_df.is_month_end == True]
-		self.price_history_monthly["next_months_close"] = self.price_history_monthly.shift(-1)
-		self.price_history_monthly["monthly_change"] = self.price_history_monthly.apply(lambda row: (row["next_months_close"] - row["Close"]) / row["Close"], axis=1 )
-		self.price_history_monthly.dropna(inplace=True)
+		# Fix this so that pj/pi and not pj - pi / pi
+		#self.time_series_daily_log = self.time_series_daily["change"].apply(lambda row: math.log(row))
 
+		if type is "daily":
+			temp_monthly_df = self.time_series_daily.copy(deep=True) 
+			temp_monthly_df["is_month_end"] = temp_monthly_df.index.is_month_end
+			self.time_series_monthly = temp_monthly_df[temp_monthly_df.is_month_end == True]
+			self.time_series_monthly["next_months_close"] = self.time_series_monthly.shift(-1)
+			self.time_series_monthly["monthly_change"] = self.time_series_monthly.apply(lambda row: (row["next_months_close"] - row[self.series_data_field]) / row[self.series_data_field], axis=1 )
+			self.time_series_monthly.drop(["monthly_change"], inplace=True, axis=1)
+			self.time_series_monthly.dropna(inplace=True)
+	
+	@double_result_decorator
 	def get_annualized(self, last_days=None):
 		# Assumes that price_history is by day
 		if last_days == None:
-			return self.price_history_daily["daily_change"].std() * math.sqrt(252)
+			return self.time_series_daily["change"].std() * math.sqrt(252)
 		
 		# Return the annualized volatility based on last_days number of days. 
 		# Assumes the data is sorted ascending
-		return self.price_history_daily.tail(last_days)["daily_change"].std() * math.sqrt(252)
-		
+		return self.time_series_daily.tail(last_days)["change"].std() * math.sqrt(252)
+	
+	@double_result_decorator	
 	def get_daily(self, last_days=None):
 		if last_days == None:
-			return self.price_history_daily["daily_change"].std()
+			return self.time_series_daily["change"].std()
 		
-		return self.price_history_daily.tail(last_days).std()
+		return self.time_series_daily.tail(last_days).std()
 
+	@double_result_decorator
 	def get_monthly(self, last_periods=None, daily_scaled=True):
 		if daily_scaled == True:
 			# Assumes that price_history is by day
 			# Assumes 21 trading days
 
 			if last_periods == None:
-				return self.price_history_daily["daily_change"].std() * math.sqrt(21)
+				return self.time_series_daily["change"].std() * math.sqrt(21)
 		
 			# Return the annualized volatility based on last_days number of days. 
 			# Assumes the data is sorted ascending
-			return self.price_history_daily.tail(last_periods)["daily_change"].std() * math.sqrt(21)
+			return self.time_series_daily.tail(last_periods)["change"].std() * math.sqrt(21)
 		
 		if last_periods == None:
-			return self.price_history_monthly["monthly_change"].std()
-		return self.price_history_monthly["monthly_change"].tail(last_periods).std()
-		
+			return self.time_series_monthly["monthly_change"].std()
+		return self.time_series_monthly["monthly_change"].tail(last_periods).std()
+	
+	@double_result_decorator
 	def get_weekly(self):
 		# Assumes that price_history is by day
 		# Assumes 5 trading days
 
 		if last_days == None:
-			return self.price_history_daily["Close"].std() * math.sqrt(5)
+			return self.time_series_daily["change"].std() * math.sqrt(5)
 		
 		# Return the annualized volatility based on last_days number of days. 
 		# Assumes the data is sorted ascending
-		return self.price_history_daily.tail(last_days)["Close"].std() * math.sqrt(5)
+		return self.time_series_daily.tail(last_days)["change"].std() * math.sqrt(5)
 
-	def	get_realized_volatility(self, period_type, periods):
+	@double_result_decorator
+	def	get_realized_volatility(self, period_type, periods, roll_period=0):
 		# daily, weekly, monthly, yearly
 		if period_type == 'daily':
-			return self.price_history.tail(periods).std()
+			return self.time_series_daily.tail(periods)["change"].std()
 
 		if period_type == 'weekly':
 			return None
 
 		if period_type == 'monthly':
-			return self.price_history_monthly.tail(periods).std()
+			return self.time_series_monthly.tail(periods)["monthly_change"].std()
 	
+		if period_type == 'rolling':
+			return self.time_series_daily.rolling(roll_period).std()
+
+	def plot_realized_volatility(self, period_type, roll_periods):
+		# params: 
+		#	'period_type' : string, 'rolling'
+		#	'roll_periods' : list of numbers, '[5, 20, 60]'
+		if period_type == 'rolling':
+			for p in roll_periods:
+				plt.plot(self.time_series_daily[self.series_data_field].rolling(p).std(), label=str(p))
+			plt.legend()
+			plt.show()
+
+	def get_mean(self):
+		pass
+
 	def get_moving_average(self):
 		pass
 
-	def plot_histogram(self):
-		self.price_history.hist(column="daily_change", bins=round(self.price_history.shape[0]/20, 1))
+	def plot_acf(self):
+		plot_acf(self.time_series_daily["change"])
 		plt.show()
+
+	def plot_histogram(self, bins=250):
+		self.time_series_daily.hist(column="change", bins=bins)
+		plt.show()
+
+	def get_return_descriptive_statistics(self, number_of_periods=None):
+		# mean, mode, std, kurtosis, skewness
+		print("Mean: " + str(self.time_series_daily["change"].mean()))
+		print("Median: " + str(self.time_series_daily["change"].median()))
+		print("Mode: " + str(self.time_series_daily["change"].mode()))
+		print("Std: " + str(self.time_series_daily["change"].std()))
+		print("Kurtosis: " + str(self.time_series_daily["change"].kurt()))
+		print("Skew: " + str(self.time_series_daily["change"].skew()))
+		
 
 	def plot(self):
 		pass

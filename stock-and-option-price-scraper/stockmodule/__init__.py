@@ -259,12 +259,30 @@ def double_result_decorator(f):
 
 	return wrapper
 
+class CorrelationModule:
+	# The purpose of this module is calculate anything related to cross correlations of time-series
+	def __init__(self):
+		self.df = None
+		pass
+
+	def get_cross_correlation(self):
+		# between explicit columns or all
+		self.df.corr()
+
+	def get_most_correlated_series(self):
+		# between a given column and the rest of the data, which are the most correlated series
+		pass
+
+class DataObject:
+	# Manages the data of the current workspace
+	def __init__(self):
+		pass
+
 class Volatility:
 	def __init__(self, series, series_data_field="close", type="daily"):
 		# Assumes DF with index as a date or something that can be ordered
 		# Input must be a dataframe with index of something to be sorted, the value with the 'series_name' 
 		self.time_series_daily = series.copy(deep=True)
-		self.time_series_daily_log = None
 		self.time_series_monthly = None
 		self.series_data_field = series_data_field
 		self.type = type
@@ -273,13 +291,13 @@ class Volatility:
 
 	def _initialize(self):
 		self.time_series_daily["tomorrows_close"] = self.time_series_daily[self.series_data_field].shift(-1)
+		
 		self.time_series_daily["change"] = self.time_series_daily.apply(lambda row: (row["tomorrows_close"] - row[self.series_data_field]) / row[self.series_data_field], axis=1 )
+		self.time_series_daily["change_log"] = self.time_series_daily.apply(lambda row: math.log(row["tomorrows_close"] / row[self.series_data_field]), axis=1 )
+		
 		self.time_series_daily.drop(["tomorrows_close"], inplace=True, axis=1)
 		self.time_series_daily.dropna(inplace=True)
 		
-		# Fix this so that pj/pi and not pj - pi / pi
-		#self.time_series_daily_log = self.time_series_daily["change"].apply(lambda row: math.log(row))
-
 		if type is "daily":
 			temp_monthly_df = self.time_series_daily.copy(deep=True) 
 			temp_monthly_df["is_month_end"] = temp_monthly_df.index.is_month_end
@@ -370,8 +388,11 @@ class Volatility:
 		plot_acf(self.time_series_daily["change"])
 		plt.show()
 
-	def plot_histogram(self, bins=250):
-		self.time_series_daily.hist(column="change", bins=bins)
+	def plot_histogram(self, bins=250, log=False):
+		if log is False:
+			self.time_series_daily.hist(column="change", bins=bins)
+		else:
+			self.time_series_daily.hist(column="change_log", bins=bins)
 		plt.show()
 
 	def get_return_descriptive_statistics(self, number_of_periods=None):

@@ -10,6 +10,7 @@ from scipy.stats import shapiro
 from scipy.stats import norm
 
 from sklearn.neighbors import KernelDensity
+from sklearn.model_selection import GridSearchCV
 
 from matplotlib import pyplot
 import matplotlib.pyplot as plt
@@ -46,8 +47,21 @@ plt.title(title)
 
 plt.show()
 
+params = {'bandwidth': np.linspace(-0.1, 0.1, 20)}
+grid = GridSearchCV(KernelDensity(), params)
+grid.fit(v.time_series_daily['change'].to_numpy().reshape(-1,1))
+grid.best_estimator_.bandwidth
+kde = grid.best_estimator_
+
+kde = KernelDensity(bandwidth=1.0)
+kde.fit(v.time_series_daily['change'].to_numpy().reshape(-1,1))
+
+test = kde.sample(100000)
+sns.distplot(test, kde=False, norm_hist=True)
+plt.show()
+
 #sns.kdeplot(v.time_series_daily['change_log'], shade=True);
-sns.distplot(v.time_series_daily['change_log'], kde=False, norm_hist=True)
+sns.distplot(v.time_series_daily['change'], kde=False, norm_hist=True)
 plt.show()
 
 v.get_return_descriptive_statistics()

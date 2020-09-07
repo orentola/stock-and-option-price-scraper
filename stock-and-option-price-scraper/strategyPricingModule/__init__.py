@@ -25,6 +25,8 @@ import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 
+import datetime
+
 import math
 import numpy as np
 
@@ -44,7 +46,9 @@ def getOptionData(optionLeg, spot_price, advance_days, volatility=None):
 	# risk_free_rate = float, the risk free rate of money
 	# start_date = string, "YYYY-MM-DD"
 	
-	calculation_date = ql.Date(optionLeg.start_date, '%Y-%m-%d')
+	current_date = datetime.datetime.strptime(optionLeg.start_date, '%Y-%m-%d') + datetime.timedelta(days=advance_days)
+
+	calculation_date = ql.Date(datetime.datetime.strftime(current_date, '%Y-%m-%d'), '%Y-%m-%d')
 	maturity_date = ql.Date(optionLeg.maturity_date, '%Y-%m-%d')
 	
 	if (calculation_date == maturity_date):
@@ -172,6 +176,8 @@ class OptionLeg:
 		# Get next business day 
 
 		for i in range(0, simulated_ticker_price.shape[0]):
+			# if return is None, we're done then TODO
+
 			print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(getOptionData(self, simulated_ticker_price[i], i, self.volatility)["value"]))
 
 class StockPriceService:
@@ -219,12 +225,12 @@ class StockPriceService:
 
 
 def main():
-	samples = 300
+	samples = 100
 	ticker = "MSFT"
 	strike_price = 250
 	
 	start_date = "2020-05-01" # YYYY-MM-DD
-	maturity_date = "2020-12-10" # YYYY-MM-DD
+	maturity_date = "2020-10-10" # YYYY-MM-DD
 
 	s = StockPriceService()
 	s.make_kde(ticker)
@@ -234,7 +240,7 @@ def main():
 	simulated_price = np.empty([samples, 1])
 
 	simulated_price[0][0] = current_spot_price
-	for i in range(1, simulated_price.shape[0]-1):
+	for i in range(1, simulated_price.shape[0]):
 		#if i == 0:
 		#	simulated_price[i][0] = current_spot_price * (1 + simulated_price_movement[0][0])
 		simulated_price[i][0] = simulated_price[i-1][0] * (1 + simulated_price_movement[i][0])

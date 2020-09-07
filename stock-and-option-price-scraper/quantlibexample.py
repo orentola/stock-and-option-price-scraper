@@ -1,10 +1,10 @@
 import QuantLib as ql 
 
 maturity_date = ql.Date(15, 1, 2016)
-spot_price = 127.62
-strike_price = 130
-volatility = 0.20 # the historical vols or implied vols
-dividend_rate =  0.0163
+spot_price = 214.25
+strike_price = 250
+volatility = 0.3992939393479445 # the historical vols or implied vols
+dividend_rate =  0.0095
 option_type = ql.Option.Call
 
 risk_free_rate = 0.001

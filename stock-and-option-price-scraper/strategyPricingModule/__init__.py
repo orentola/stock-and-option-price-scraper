@@ -25,13 +25,14 @@ import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 
+import math
 import numpy as np
 
 GREEKS_DECIMALS = 8
 STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-08-12_23_07_one_time_run\\data.json"
 
 
-def getOptionData(optionLeg, spot_price, volatility=None):
+def getOptionData(optionLeg, spot_price, advance_days, volatility=None):
 	# volatility = None => leads to usage of the volatility from the optionLeg parameter
 	
 	# Params:
@@ -42,8 +43,14 @@ def getOptionData(optionLeg, spot_price, volatility=None):
 	# dividend_rate = float, yearly dividends %
 	# risk_free_rate = float, the risk free rate of money
 	# start_date = string, "YYYY-MM-DD"
-		
+	
+	calculation_date = ql.Date(optionLeg.start_date, '%Y-%m-%d')
 	maturity_date = ql.Date(optionLeg.maturity_date, '%Y-%m-%d')
+	
+	if (calculation_date == maturity_date):
+		print("At expiration, skipping.")
+		return None
+
 	spot_price = spot_price
 	strike_price = optionLeg.strike_price
 	volatility = volatility if volatility is not None else optionLeg.volatility
@@ -62,7 +69,7 @@ def getOptionData(optionLeg, spot_price, volatility=None):
 	day_count = ql.Actual365Fixed()
 	calendar = ql.UnitedStates()
 
-	calculation_date = ql.Date(start_date, '%Y-%m-%d')
+	
 	ql.Settings.instance().evaluationDate = calculation_date
 
 	payoff = ql.PlainVanillaPayoff(option_type, strike_price)
@@ -96,12 +103,12 @@ def getOptionData(optionLeg, spot_price, volatility=None):
 	american_option.setPricingEngine(binomial_engine)
 	
 	final_option = {}
-	final_option["type"] = option
+	final_option["type"] = optionLeg.option
 	final_option["value"] = american_option.NPV()
 	final_option["delta"] = american_option.delta()
 	final_option["theta"] = american_option.theta()
 	final_option["gamma"] = american_option.gamma()
-	final_option["vega"] = american_option.vega()
+	#final_option["vega"] = american_option.vega()
 
 	return final_option
 
@@ -117,7 +124,7 @@ class Strategy:
 	def simulate(self):
 		# Parallelize this TODO
 		for i in self.legs:
-			i.simulate()
+			i.simulate(self.underlying_price_data_sets[i.ticker])
 
 	def save_current_option_data_to_history(self):
 		# TODO
@@ -133,36 +140,39 @@ class Strategy:
 		pass
 
 	def addLeg(self, data):
-
+		#self.legs.append(type("leg" + str(len(self.legs)), (OptionLeg, ), data))
+		self.legs.append(OptionLeg(data))
 
 class OptionLeg:
-	def __init__(self):
+	def __init__(self, dict):
+		for k, v in dict.items():
+			setattr(self, k, v)
 
-		self.ticker = ""
-		self.dividend_rate = ""
-		self.option = ""
-		self.option_type = "" # short or long
-		self.volatility = "" 
-		self.strike_price = ""
-		self.spot_price = ""
-		self.maturity_date = ""
+		#self.ticker = ""
+		#self.dividend_rate = ""
+		#self.option = ""
+		#self.option_type = "" # short or long
+		#self.volatility = "" 
+		#self.strike_price = ""
+		#self.spot_price = ""
+		#self.maturity_date = ""
 		#self.start_date = ""
-		self.risk_free_rate = ""
-		self.latest_price_data = ""
-		self.price_data_history = ""
-		self.underlying_price_data = ""
-		self.underlying_volatility_data = ""
-		self.latest_start_date = ""
+		#self.risk_free_rate = ""
+		#self.latest_price_data = ""
+		#self.price_data_history = ""
+		#self.underlying_price_data = ""
+		#self.underlying_volatility_data = ""
+		#self.latest_start_date = ""
 
 	def advance_one_unit_of_time(self, underlying_price, underlying_volatility=None):
 		self.latest_price_data_object = getOptionData(self, underlying_price, underlying_volatility)
 
-	def simulate(self, infer_volatility ):
-
+	def simulate(self, simulated_ticker_price):
+		print("Starting the simulation for " + self.ticker + " " + self.option)
 		# Get next business day 
 
-		for i in self.underlying_price_data:
-
+		for i in range(0, simulated_ticker_price.shape[0]):
+			print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(getOptionData(self, simulated_ticker_price[i], i, self.volatility)["value"]))
 
 class StockPriceService:
 	def __init__(self):
@@ -179,7 +189,11 @@ class StockPriceService:
 		plt.legend(loc='upper left')
 		plt.show()
 
-	def get_daily_change(self, ticker):
+	def get_volatility(self, ticker, periods):
+		temp_stock = Stock.from_dict(self.data[ticker])
+		return Volatility(temp_stock.stock_price_history, "Close").get_daily(periods)
+
+	def get_daily_change(self, ticker, periods=None):
 		temp_stock = Stock.from_dict(self.data[ticker])
 		return Volatility(temp_stock.stock_price_history, "Close").time_series_daily['change']
 
@@ -206,28 +220,48 @@ class StockPriceService:
 
 def main():
 	samples = 300
+	ticker = "MSFT"
+	strike_price = 250
+	
+	start_date = "2020-05-01" # YYYY-MM-DD
+	maturity_date = "2020-12-10" # YYYY-MM-DD
 
 	s = StockPriceService()
-	s.make_kde("MSFT")
+	s.make_kde(ticker)
 
 	current_spot_price = 214.25
 	simulated_price_movement = s.get_sample_of_current_kde(samples)
 	simulated_price = np.empty([samples, 1])
 
-	for i in range(0, simulated_price.shape[0]):
-		if i == 0:
-			simulated_price[i][0] = current_spot_price * (1 + simulated_price_movement[0][0])
-		else:
-			simulated_price[i][0] = simulated_price[i-1][0] * (1 + simulated_price_movement[i][0])
+	simulated_price[0][0] = current_spot_price
+	for i in range(1, simulated_price.shape[0]-1):
+		#if i == 0:
+		#	simulated_price[i][0] = current_spot_price * (1 + simulated_price_movement[0][0])
+		simulated_price[i][0] = simulated_price[i-1][0] * (1 + simulated_price_movement[i][0])
+
 	price_dict = {}
-	price_dict["MSFT"] = simulated_price.reshape(samples)
+	price_dict[ticker] = simulated_price.reshape(samples)
+	
+	current_volatility_daily = s.get_volatility(ticker, 30) / 100
+	current_volatility = current_volatility_daily * math.sqrt(365) # THIS MAY NEED TO BE 252
 	
 	# The number of simulations for the leg
 	strategy = Strategy(price_dict)
 
-	strategy.addLeg()
-	strategy.addLeg()
-	strategy.addLeg()
+	optionLegDict = {}
+	optionLegDict["ticker"] = "MSFT"
+	optionLegDict["dividend_rate"] = 0.0095
+	optionLegDict["option"] = "Call"
+	optionLegDict["position_type"] = "Long"
+	optionLegDict["volatility"] = current_volatility
+	optionLegDict["strike_price"] = strike_price
+	optionLegDict["maturity_date"] = maturity_date
+	optionLegDict["risk_free_rate"] = 0.008
+	optionLegDict["start_date"] = start_date
+	
+	strategy.addLeg(optionLegDict)
+	strategy.simulate()
+
 
 	# Generate the underlying datasets
 	# The underlying datasets will be dictionaries containing the dataframes

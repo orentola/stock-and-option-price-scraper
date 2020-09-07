@@ -322,7 +322,7 @@ class Volatility:
 		if last_days == None:
 			return self.time_series_daily["change"].std()
 		
-		return self.time_series_daily.tail(last_days).std()
+		return self.time_series_daily.tail(last_days)["change"].std()
 
 	@double_result_decorator
 	def get_monthly(self, last_periods=None, daily_scaled=True):

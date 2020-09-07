@@ -176,6 +176,9 @@ class OptionLeg:
 
 	def simulate(self, simulated_ticker_price):
 		print("Starting the simulation for " + self.ticker + " " + self.option)
+		print("Reseting the simulated_price_data dataframe.")
+		self.simulated_price_data.drop(self.simulated_price_data.index, inplace=True)
+
 		# Get next business day 
 
 		for i in range(0, simulated_ticker_price.shape[0]):
@@ -183,7 +186,7 @@ class OptionLeg:
 			temp_option_price_object = getOptionData(self, simulated_ticker_price[i], i, self.volatility)
 			self.simulated_price_data = self.simulated_price_data.append(temp_option_price_object, ignore_index=True)
 
-			print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))
+			#print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))
 
 class StockPriceService:
 	def __init__(self):
@@ -240,39 +243,46 @@ def main():
 	s = StockPriceService()
 	s.make_kde(ticker)
 
+	number_of_simulations = 10
 	current_spot_price = 214.25
-	simulated_price_movement = s.get_sample_of_current_kde(samples)
-	simulated_price = np.empty([samples, 1])
 
-	simulated_price[0][0] = current_spot_price
-	for i in range(1, simulated_price.shape[0]):
-		#if i == 0:
-		#	simulated_price[i][0] = current_spot_price * (1 + simulated_price_movement[0][0])
-		simulated_price[i][0] = simulated_price[i-1][0] * (1 + simulated_price_movement[i][0])
-
-	price_dict = {}
-	price_dict[ticker] = simulated_price.reshape(samples)
-	
 	current_volatility_daily = s.get_volatility(ticker, 30) / 100
 	current_volatility = current_volatility_daily * math.sqrt(365) # THIS MAY NEED TO BE 252
 	
-	# The number of simulations for the leg
-	strategy = Strategy(price_dict)
+	option_time_series_value = pd.DataFrame()
 
-	optionLegDict = {}
-	optionLegDict["ticker"] = "MSFT"
-	optionLegDict["dividend_rate"] = 0.0095
-	optionLegDict["option"] = "Call"
-	optionLegDict["position_type"] = "Long"
-	optionLegDict["volatility"] = current_volatility
-	optionLegDict["strike_price"] = strike_price
-	optionLegDict["maturity_date"] = maturity_date
-	optionLegDict["risk_free_rate"] = 0.008
-	optionLegDict["start_date"] = start_date
+	for i in range(0, number_of_simulations):
+		print(str("Running simulation number: " + str(i)))
+
+		simulated_price_movement = s.get_sample_of_current_kde(samples)
+		simulated_price = np.empty([samples, 1])
+
+		simulated_price[0][0] = current_spot_price
+		for i in range(1, simulated_price.shape[0]):
+			#if i == 0:
+			#	simulated_price[i][0] = current_spot_price * (1 + simulated_price_movement[0][0])
+			simulated_price[i][0] = simulated_price[i-1][0] * (1 + simulated_price_movement[i][0])
+
+		price_dict = {}
+		price_dict[ticker] = simulated_price.reshape(samples)
 	
-	strategy.addLeg(optionLegDict)
-	strategy.simulate()
+		# The number of simulations for the leg
+		strategy = Strategy(price_dict)
 
+		optionLegDict = {}
+		optionLegDict["ticker"] = "MSFT"
+		optionLegDict["dividend_rate"] = 0.0095
+		optionLegDict["option"] = "Call"
+		optionLegDict["position_type"] = "Long"
+		optionLegDict["volatility"] = current_volatility
+		optionLegDict["strike_price"] = strike_price
+		optionLegDict["maturity_date"] = maturity_date
+		optionLegDict["risk_free_rate"] = 0.008
+		optionLegDict["start_date"] = start_date
+		
+		strategy.addLeg(optionLegDict)
+		strategy.simulate()
+		option_time_series_value = option_time_series_value.append(strategy.legs[0].simulated_price_data["value"])
 
 	# Generate the underlying datasets
 	# The underlying datasets will be dictionaries containing the dataframes

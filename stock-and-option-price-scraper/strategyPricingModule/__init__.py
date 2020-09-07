@@ -107,7 +107,9 @@ def getOptionData(optionLeg, spot_price, advance_days, volatility=None):
 	american_option.setPricingEngine(binomial_engine)
 	
 	final_option = {}
+	final_option["underlying_price"] = spot_price
 	final_option["type"] = optionLeg.option
+	final_option["time_to_expiry"] = maturity_date - calculation_date + 1 # +1 for taking the expiration day into account
 	final_option["value"] = american_option.NPV()
 	final_option["delta"] = american_option.delta()
 	final_option["theta"] = american_option.theta()
@@ -167,6 +169,7 @@ class OptionLeg:
 		#self.underlying_price_data = ""
 		#self.underlying_volatility_data = ""
 		#self.latest_start_date = ""
+		self.simulated_price_data = pd.DataFrame(columns=["underlying_price", "value", "delta", "theta", "gamma", "vega", "time_to_expiry"])
 
 	def advance_one_unit_of_time(self, underlying_price, underlying_volatility=None):
 		self.latest_price_data_object = getOptionData(self, underlying_price, underlying_volatility)
@@ -177,8 +180,10 @@ class OptionLeg:
 
 		for i in range(0, simulated_ticker_price.shape[0]):
 			# if return is None, we're done then TODO
+			temp_option_price_object = getOptionData(self, simulated_ticker_price[i], i, self.volatility)
+			self.simulated_price_data = self.simulated_price_data.append(temp_option_price_object, ignore_index=True)
 
-			print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(getOptionData(self, simulated_ticker_price[i], i, self.volatility)["value"]))
+			print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))
 
 class StockPriceService:
 	def __init__(self):

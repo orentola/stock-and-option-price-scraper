@@ -146,13 +146,29 @@ class OptionChain:
 class Stock:
 	def __init__(self, ticker, datetime_run = None, data_endpoint = "yfinance"):
 		self.ticker = ticker
-		self.stock_price_history = None
+		self.stock_price_history = pd.DataFrame()
 		self.option_chains = []
 		self.yfinance_ticker_object = None
 		self.data_endpoint = "yfinance"
 		self.datetime_run = None
 
 		self.update_object_based_on_data_endpoint()
+
+	@classmethod
+	def from_dict(cls, dict):
+		s = cls(dict["ticker"], dict["datetime_run"], dict["data_endpoint"])
+
+		s.stock_price_history = pd.read_json(dict["stock_price_history"]) if "stock_price_history" in dict else None
+
+		option_chain_list = dict["option_chains"] if "option_chains" in dict else None
+		for chain in option_chain_list:
+			s.option_chains.append(OptionChain.from_dict(chain))
+		return s
+
+	def get_last_close_price(self):
+		if self.stock_price_history.empty is True:
+			return "Stock price history not initialized."
+		return self.stock_price_history.tail(1)["Close"][0]
 
 	def download_stock_price_data(self, start_dt = None, end_dt = None):
 		self.stock_price_history = self.yfinance_ticker_object.history(start=start_dt, end=end_dt)
@@ -201,16 +217,6 @@ class Stock:
 		return year + "-" + month + "-" + day
 		#[len(self.ticker):len(self.ticker)+6]
 
-	@classmethod
-	def from_dict(cls, dict):
-		s = cls(dict["ticker"], dict["datetime_run"], dict["data_endpoint"])
-
-		s.stock_price_history = pd.read_json(dict["stock_price_history"]) if "stock_price_history" in dict else None
-
-		option_chain_list = dict["option_chains"] if "option_chains" in dict else None
-		for chain in option_chain_list:
-			s.option_chains.append(OptionChain.from_dict(chain))
-		return s
 
 	def update_object_based_on_data_endpoint(self):
 		if (self.data_endpoint == "yfinance"):

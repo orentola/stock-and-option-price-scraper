@@ -32,18 +32,24 @@ import math
 import numpy as np
 
 GREEKS_DECIMALS = 8
-STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-07_20_18_one_time_run\\data.json"
+STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
 
-def getSimulatedOptionPriceForOneIteration(ticker, stockPriceService, samples, optionLegDict, current_spot_price):
+def getSimulatedOptionPriceForOneIteration(ticker, stockPriceService, samples, optionLegsDict, current_spot_price):
 	# TODO: Add support for multi-leg options
 	price_dict = {}	
 	simulated_underlying_price_series = getSimulatedPriceForOneIteration(stockPriceService, samples, current_spot_price)
 	price_dict[ticker] = simulated_underlying_price_series 
 
-	strategy = Strategy(price_dict)				
-	strategy.addLeg(optionLegDict)
+	strategy = Strategy(price_dict)
+	for k, v in optionLegsDict.items():
+		strategy.addLeg(v)
+	
 	strategy.simulate()
-	return (simulated_underlying_price_series, strategy.legs[0].simulated_price_data["value"])
+	
+	#return (simulated_underlying_price_series, strategy.legs[0].simulated_price_data["value"])
+	#return (simulated_underlying_price_series, strategy.get_profit_loss_and_values(), strategy.strategy_profit_loss.columns.values.tolist())
+	# Return value is (underlying_price, (profit_loss, leg_values))
+	return (simulated_underlying_price_series, strategy.get_profit_loss_and_values())
 
 def getSimulatedPriceForOneIteration(stockPriceService, samples, current_spot_price):
 		simulated_price_movement = stockPriceService.get_sample_of_current_kde(samples, False)
@@ -57,7 +63,7 @@ def getSimulatedPriceForOneIteration(stockPriceService, samples, current_spot_pr
 
 		return pd.DataFrame(simulated_price, columns=["simulated_price"])["simulated_price"]
 
-def getOptionData(optionLeg, spot_price, advance_days, volatility=None):
+def getOptionData(optionLeg, spot_price, advance_days, position_type, volatility=None):
 	# volatility = None => leads to usage of the volatility from the optionLeg parameter
 	
 	# Params:
@@ -131,8 +137,14 @@ def getOptionData(optionLeg, spot_price, advance_days, volatility=None):
 	final_option = {}
 	final_option["underlying_price"] = spot_price
 	final_option["type"] = optionLeg.option
+	final_option["position_type"] = position_type
 	final_option["time_to_expiry"] = maturity_date - calculation_date + 1 # +1 for taking the expiration day into account
 	final_option["value"] = american_option.NPV()
+	
+	if position_type == "short":
+		final_option["value"] = -1 * final_option["value"]
+
+	# TODO, UPDATE GREEKS BASED ON POSITION TYPE (LONG/SHORT)
 	final_option["delta"] = american_option.delta()
 	final_option["theta"] = american_option.theta()
 	final_option["gamma"] = american_option.gamma()
@@ -148,9 +160,9 @@ class Strategy:
 		self.legs = [] # Option legs in this strategy
 		self.underlying_price_data_sets = price_dict # Dictionary of pandas dataframes that has 
 		self.underlying_volatility_data_sets = {}
+		self.strategy_profit_loss = pd.DataFrame()
 
 	def simulate(self):
-		# Parallelize this TODO
 		for i in self.legs:
 			i.simulate(self.underlying_price_data_sets[i.ticker])
 
@@ -158,12 +170,26 @@ class Strategy:
 		# TODO
 		pass
 	
-	def calculate_profit_loss_over_time(self):
+	def get_profit_loss_and_values(self):
 		# Get max length of an option based on which simulate the thing
-
-		for i in range(0, self.max_length):
-			self.advance_one_unit_of_time()
+		
+		profit_loss_dict = {}
+		option_leg_value_dict = {}
+		for l in self.legs:
+			profit_loss_dict[l.name + "_profit_loss"] = l.simulated_price_data["profit_loss"]
+			option_leg_value_dict[l.name + "_value"] = l.simulated_price_data["value"]
+		
+		self.strategy_profit_loss = pd.DataFrame(data=profit_loss_dict)
+		self.strategy_profit_loss["total_profit_loss"] = self.strategy_profit_loss.apply(lambda row: self._get_profit_loss_sum_row(row), axis=1)
+		return (self.strategy_profit_loss, option_leg_value_dict)
 	
+	def _get_profit_loss_sum_row(self, row):
+		# row.values is a numpy array
+		temp_value = 0.0
+		for v in range(0,row.values.shape[0]):
+			temp_value = temp_value + row.values[v]
+		return temp_value
+
 	def get_profit_loss_time_series(self):
 		pass
 
@@ -176,22 +202,7 @@ class OptionLeg:
 		for k, v in dict.items():
 			setattr(self, k, v)
 
-		#self.ticker = ""
-		#self.dividend_rate = ""
-		#self.option = ""
-		#self.option_type = "" # short or long
-		#self.volatility = "" 
-		#self.strike_price = ""
-		#self.spot_price = ""
-		#self.maturity_date = ""
-		#self.start_date = ""
-		#self.risk_free_rate = ""
-		#self.latest_price_data = ""
-		#self.price_data_history = ""
-		#self.underlying_price_data = ""
-		#self.underlying_volatility_data = ""
-		#self.latest_start_date = ""
-		self.simulated_price_data = pd.DataFrame(columns=["underlying_price", "value", "delta", "theta", "gamma", "vega", "time_to_expiry"])
+		self.simulated_price_data = pd.DataFrame(columns=["underlying_price", "position_type", "initial_value", "value", "profit_loss", "delta", "theta", "gamma", "vega", "time_to_expiry"])
 
 	def advance_one_unit_of_time(self, underlying_price, underlying_volatility=None):
 		self.latest_price_data_object = getOptionData(self, underlying_price, underlying_volatility)
@@ -200,12 +211,21 @@ class OptionLeg:
 		print("Starting the simulation for " + self.ticker + " " + self.option)
 		print("Reseting the simulated_price_data dataframe.")
 		self.simulated_price_data.drop(self.simulated_price_data.index, inplace=True)
+		temp_initial_value = 0.0
 
-		# Get next business day 
-
+		# TODO: This should be optimized to not append data to df
 		for i in range(0, simulated_ticker_price.shape[0]):
 			# if return is None, we're done then TODO
-			temp_option_price_object = getOptionData(self, simulated_ticker_price[i], i, self.volatility)
+			# i = 0 houses the price at first step
+
+			temp_option_price_object = getOptionData(self, simulated_ticker_price[i], i, self.position_type, self.volatility)
+
+			if i == 0:
+				# Grab the initial price
+				temp_initial_value = temp_option_price_object["value"]	
+
+			temp_option_price_object["initial_value"] = temp_initial_value
+			temp_option_price_object["profit_loss"] = temp_option_price_object["value"] - temp_option_price_object["initial_value"]
 			self.simulated_price_data = self.simulated_price_data.append(temp_option_price_object, ignore_index=True)
 
 			#print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))

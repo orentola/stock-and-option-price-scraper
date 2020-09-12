@@ -31,7 +31,7 @@ def main():
 	d = Downloader(TICKER_LIST_NAME)
 
 	start_dt = "2000-01-01"
-	end_dt = "2020-09-04"
+	end_dt = datetime.strftime(datetime.today(), "%Y-%m-%d")
 
 	print("Starting the loop for checking time and running all the steps...")
 	while True:

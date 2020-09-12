@@ -30,6 +30,13 @@
     <Compile Include="downloader_options.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="multiprocessingTest\__init__.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="optionstrategypricingmodule\__init__.py" />
+    <Compile Include="option_pricer.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="quantlibexample.py">
       <SubType>Code</SubType>
     </Compile>
@@ -39,18 +46,13 @@
     <Compile Include="stock_price_analyzer.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="strategypricingmodule\__init__.py">
-      <SubType>Code</SubType>
-    </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="strategypricingmodule\__init__old.py">
-      <SubType>Code</SubType>
-    </Content>
     <Content Include="tickers.txt" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="strategypricingmodule\" />
+    <Folder Include="multiprocessingTest\" />
+    <Folder Include="optionstrategypricingmodule\" />
     <Folder Include="tests\" />
     <Folder Include="stockmodule\" />
   </ItemGroup>

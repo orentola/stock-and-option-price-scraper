@@ -36,7 +36,8 @@ import numpy as np
 import optionstrategypricingmodule
 import multiprocessing as mp
 
-STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
+#STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
+STOCK_DATA_PATH = "/home/orentola/stock-and-option-price-scraper/stock-and-option-price-scraper/stock_data/2020-09-13_04_39_one_time_run/data.json"
 
 underlying_price_time_series_value_list = []
 option_time_series_value_list = []

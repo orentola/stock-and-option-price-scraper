@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.gofplots import qqplot
 
+from mpl_toolkits.mplot3d import Axes3D
+
 import datetime
 
 import math
@@ -55,155 +57,159 @@ def simulator_price_collector_callback(result):
 
 def main():
 	scenario_data = []
-	strikes = [185]
-	#strikes = [x for x in range(180, 205, 2.5)]
+	#strikes = [185]
+	strikes = [x for x in np.arange(180, 185, 2.5)]
+	spread_widths = [2.5, 5, 10]
 	stock_price_dict = {}
 	option_price_dict = {}
 
 	# TODO: NEXT STEP, RUN THIS SHIT AND SEE WHAT HAPPENS
 
 	for strike in strikes:
-		ticker = "MSFT"
-		strike_price = strike
-		number_of_simulations = 100
-		dividend_rate = 0.0095
-		RISK_FREE_RATE = 0.008
+		for width in spread_widths:
+			ticker = "MSFT"
+			strike_price = strike
+			number_of_simulations = 1000
+			dividend_rate = 0.0095
+			RISK_FREE_RATE = 0.008
 
-		manual_input_volatility = False
+			manual_input_volatility = False
 
-		start_date = "2020-05-01" # YYYY-MM-DD
-		maturity_date = "2020-06-10" # YYYY-MM-DD
+			start_date = "2020-05-01" # YYYY-MM-DD
+			maturity_date = "2020-06-10" # YYYY-MM-DD
 
-		optionLegsDict = {}
+			optionLegsDict = {}
 
-		optionLegDict1 = {}
-		optionLegDict1["name"] = "leg_name2"
-		optionLegDict1["ticker"] = ticker
-		optionLegDict1["dividend_rate"] = dividend_rate
-		optionLegDict1["option"] = "Put"
-		optionLegDict1["position_type"] = "short"
-		optionLegDict1["volatility"] = ""
-		optionLegDict1["strike_price"] = strike_price
-		optionLegDict1["maturity_date"] = maturity_date
-		optionLegDict1["risk_free_rate"] = RISK_FREE_RATE
-		optionLegDict1["start_date"] = start_date
+			optionLegDict1 = {}
+			optionLegDict1["name"] = "leg_name2"
+			optionLegDict1["ticker"] = ticker
+			optionLegDict1["dividend_rate"] = dividend_rate
+			optionLegDict1["option"] = "Put"
+			optionLegDict1["position_type"] = "short"
+			optionLegDict1["volatility"] = ""
+			optionLegDict1["strike_price"] = strike_price
+			optionLegDict1["maturity_date"] = maturity_date
+			optionLegDict1["risk_free_rate"] = RISK_FREE_RATE
+			optionLegDict1["start_date"] = start_date
+			optionLegsDict[optionLegDict1["name"]] = optionLegDict1
 
-		#optionLegDict2 = {}
-		#optionLegDict2["name"] = "leg_name1"
-		#optionLegDict2["ticker"] = ticker
-		#optionLegDict2["dividend_rate"] = dividend_rate
-		#optionLegDict2["option"] = "Put"
-		#optionLegDict2["position_type"] = "long" 
-		#optionLegDict2["volatility"] = ""
-		#optionLegDict2["strike_price"] = strike_price - 5
-		#optionLegDict2["maturity_date"] = maturity_date
-		#optionLegDict2["risk_free_rate"] = RISK_FREE_RATE
-		#optionLegDict2["start_date"] = start_date
+			optionLegDict2 = {}
+			optionLegDict2["name"] = "leg_name1"
+			optionLegDict2["ticker"] = ticker
+			optionLegDict2["dividend_rate"] = dividend_rate
+			optionLegDict2["option"] = "Put"
+			optionLegDict2["position_type"] = "long" 
+			optionLegDict2["volatility"] = ""
+			optionLegDict2["strike_price"] = strike_price - width
+			optionLegDict2["maturity_date"] = maturity_date
+			optionLegDict2["risk_free_rate"] = RISK_FREE_RATE
+			optionLegDict2["start_date"] = start_date
+			optionLegsDict[optionLegDict2["name"]] = optionLegDict2
+		
+			underlying_price_time_series_value_list.clear()
+			option_time_series_value_list.clear()
+			total_profit_loss.clear()
 
-		optionLegsDict[optionLegDict1["name"]] = optionLegDict1
-		#optionLegsDict[optionLegDict2["name"]] = optionLegDict2
+			date_difference = (datetime.datetime.strptime(maturity_date, "%Y-%m-%d") - datetime.datetime.strptime(start_date, "%Y-%m-%d")).days
+			# Sample for the duration
+			samples = date_difference
 
-		underlying_price_time_series_value_list.clear()
-		option_time_series_value_list.clear()
-		total_profit_loss.clear()
+			s = optionstrategypricingmodule.StockPriceService()
+			# TODO SUPPORT FOR MULTIPLE TICKERS IN KDE
+			s.make_kde(ticker)
+			s.get_sample_of_current_kde(10000)
+			#s.fit_normal_dist(ticker)
+			#s.plot_histogram(ticker, True, True)
 
-		date_difference = (datetime.datetime.strptime(maturity_date, "%Y-%m-%d") - datetime.datetime.strptime(start_date, "%Y-%m-%d")).days
-		# Sample for the duration
-		samples = date_difference
+			current_spot_price = s.get_last_close_price(ticker)
 
-		s = optionstrategypricingmodule.StockPriceService()
-		# TODO SUPPORT FOR MULTIPLE TICKERS IN KDE
-		s.make_kde(ticker)
-		s.get_sample_of_current_kde(10000)
-		#s.fit_normal_dist(ticker)
-		#s.plot_histogram(ticker, True, True)
-
-		current_spot_price = s.get_last_close_price(ticker)
-
-		if manual_input_volatility is False:
-			current_volatility_daily = s.get_volatility(ticker, 30) / 100
-			current_volatility = current_volatility_daily * math.sqrt(365) # THIS MAY NEED TO BE 252
+			if manual_input_volatility is False:
+				current_volatility_daily = s.get_volatility(ticker, 30) / 100
+				current_volatility = current_volatility_daily * math.sqrt(365) # THIS MAY NEED TO BE 252
 			
-			for k, v in optionLegsDict.items():
-				v["volatility"] = current_volatility
+				for k, v in optionLegsDict.items():
+					v["volatility"] = current_volatility
 		
 
-		mp_start_dt = datetime.datetime.now()
-		pool = mp.Pool(mp.cpu_count())
+			mp_start_dt = datetime.datetime.now()
+			pool = mp.Pool(mp.cpu_count()-1)
 
-		# For testing and debugging purposes
-		#test = optionstrategypricingmodule.getSimulatedOptionPriceForOneIteration(ticker, s, samples, optionLegsDict, current_spot_price)
+			# For testing and debugging purposes
+			#test = optionstrategypricingmodule.getSimulatedOptionPriceForOneIteration(ticker, s, samples, optionLegsDict, current_spot_price)
 
-		for i in range(0, number_of_simulations):
-			pool.apply_async(optionstrategypricingmodule.getSimulatedOptionPriceForOneIteration, args=(ticker, s, samples, optionLegsDict, current_spot_price), callback=simulator_price_collector_callback)
+			for i in range(0, number_of_simulations):
+				pool.apply_async(optionstrategypricingmodule.getSimulatedOptionPriceForOneIteration, args=(ticker, s, samples, optionLegsDict, current_spot_price), callback=simulator_price_collector_callback)
 
-		pool.close()
-		pool.join()
-		mp_end_dt = datetime.datetime.now()
+			pool.close()
+			pool.join()
+			mp_end_dt = datetime.datetime.now()
 
-		underlying_price_time_series_value = pd.DataFrame(underlying_price_time_series_value_list)
-		option_time_series_value = pd.DataFrame(total_profit_loss)
+			underlying_price_time_series_value = pd.DataFrame(underlying_price_time_series_value_list)
+			option_time_series_value = pd.DataFrame(total_profit_loss)
 
-		#option_time_series_value_list
+			#option_time_series_value_list
 
-		option_time_series_value.describe()
-		break_even_threshold_price = option_time_series_value.iloc[0,0] # Price at time=0
-		percentile_breakeven_at_end = stats.percentileofscore(option_time_series_value[underlying_price_time_series_value.shape[1]-1], break_even_threshold_price)
+			option_time_series_value.describe()
+			break_even_threshold_price = 0.0 # Sum of all profits and losses of individual legs, breakeven p/l at 0.0
+			#option_time_series_value.iloc[0,0] # Price at time=0
+			percentile_breakeven_at_end = stats.percentileofscore(option_time_series_value[underlying_price_time_series_value.shape[1]-1], break_even_threshold_price)
 	
-		expected_value_at_end = (option_time_series_value[underlying_price_time_series_value.shape[1]-1] * (1/number_of_simulations)).sum()
-		expected_value_daily = (option_time_series_value * (1/number_of_simulations)).sum()
-		expected_value_daily.name = "Expected"
-		percentile_breakeven_daily = stats.percentileofscore(expected_value_daily, break_even_threshold_price)
+			expected_value_at_end = (option_time_series_value[underlying_price_time_series_value.shape[1]-1] * (1/number_of_simulations)).sum()
+			expected_value_daily = (option_time_series_value * (1/number_of_simulations)).sum()
+			expected_value_daily.name = "Expected"
+			percentile_breakeven_daily = stats.percentileofscore(expected_value_daily, break_even_threshold_price)
 		
-		underlying_price_time_series_value.describe()
-		stock_price_estimate_lower_bound = underlying_price_time_series_value.quantile(0.05)
-		stock_price_estimate_median = underlying_price_time_series_value.quantile(0.50)
-		stock_price_estimate_upper_bound = underlying_price_time_series_value.quantile(0.95)
+			underlying_price_time_series_value.describe()
+			stock_price_estimate_lower_bound = underlying_price_time_series_value.quantile(0.05)
+			stock_price_estimate_median = underlying_price_time_series_value.quantile(0.50)
+			stock_price_estimate_upper_bound = underlying_price_time_series_value.quantile(0.95)
 		
-		quantiles = [0.05, 0.20, 0.50, 0.80, 0.95]
-		option_price_quantiles = option_time_series_value.quantile(quantiles)
-		option_price_quantiles = option_price_quantiles.append(expected_value_daily)
-		break_even_threshold_price_series = pd.Series([break_even_threshold_price for i in range(0, date_difference)], name="Breakeven")
-		option_price_quantiles = option_price_quantiles.append(break_even_threshold_price_series)
+			quantiles = [0.05, 0.20, 0.50, 0.80, 0.95]
+			option_price_quantiles = option_time_series_value.quantile(quantiles)
+			option_price_quantiles = option_price_quantiles.append(expected_value_daily)
+			break_even_threshold_price_series = pd.Series([break_even_threshold_price for i in range(0, date_difference)], name="Breakeven")
+			option_price_quantiles = option_price_quantiles.append(break_even_threshold_price_series)
 
-		# TODO: Breakeven price is not correct 
-		for index, row in option_price_quantiles.iterrows():
-			plt.plot(row, label=index)
-		plt.legend()
-		plt.show()
-		#option_price_estimate_lower_bound = option_time_series_value.quantile(0.05)
-		#option_price_estimate_expected_value = expected_value_daily
-		#option_price_estimate_median = option_time_series_value.quantile(0.50)
-		#option_price_estimate_upper_bound = option_time_series_value.quantile(0.95)
-		#option_price_estimate_upper_bound_75 = option_time_series_value.quantile(0.75)
-		#option_price_estimate_upper_bound_85 = option_time_series_value.quantile(0.85)
+			#for index, row in option_price_quantiles.iterrows():
+			#	plt.plot(row, label=index)
+			#plt.xlabel("Days")
+			#plt.ylabel("Profit Loss $")
+			#plt.legend()
+			#plt.show()
 
-		stock_price_estimate_df = pd.DataFrame(data={"Lower Bound" : stock_price_estimate_lower_bound, "Upper Bound" : stock_price_estimate_upper_bound, "Median" : stock_price_estimate_median})
+			#option_price_estimate_lower_bound = option_time_series_value.quantile(0.05)
+			#option_price_estimate_expected_value = expected_value_daily
+			#option_price_estimate_median = option_time_series_value.quantile(0.50)
+			#option_price_estimate_upper_bound = option_time_series_value.quantile(0.95)
+			#option_price_estimate_upper_bound_75 = option_time_series_value.quantile(0.75)
+			#option_price_estimate_upper_bound_85 = option_time_series_value.quantile(0.85)
 
-		#plt.plot(stock_price_estimate_df['Lower Bound'], label='Lower Bound')
-		#plt.plot(stock_price_estimate_df['Median'], label='Median')
-		#plt.plot(stock_price_estimate_df['Upper Bound'], label='Upper Bound')
-		#plt.legend()
-		#plt.show()
+			stock_price_estimate_df = pd.DataFrame(data={"Lower Bound" : stock_price_estimate_lower_bound, "Upper Bound" : stock_price_estimate_upper_bound, "Median" : stock_price_estimate_median})
+
+			#plt.plot(stock_price_estimate_df['Lower Bound'], label='Lower Bound')
+			#plt.plot(stock_price_estimate_df['Median'], label='Median')
+			#plt.plot(stock_price_estimate_df['Upper Bound'], label='Upper Bound')
+			#plt.legend()
+			#plt.show()
 		
-		stock_price_dict[strike_price] = copy.deepcopy(stock_price_estimate_df)
+			stock_price_dict[strike_price] = copy.deepcopy(stock_price_estimate_df)
 
 		
-		#option_price_estimate_df = pd.DataFrame(data={"Upper Bound 85%": option_price_estimate_upper_bound_85, "Upper Bound 75%": option_price_estimate_upper_bound_75, "Breakeven" : break_even_threshold_price_series, "Lower Bound 5%" : option_price_estimate_lower_bound, "Upper Bound 95%": option_price_estimate_upper_bound, "Median 50%" : option_price_estimate_median, "Expected" : option_price_estimate_expected_value})
+			#option_price_estimate_df = pd.DataFrame(data={"Upper Bound 85%": option_price_estimate_upper_bound_85, "Upper Bound 75%": option_price_estimate_upper_bound_75, "Breakeven" : break_even_threshold_price_series, "Lower Bound 5%" : option_price_estimate_lower_bound, "Upper Bound 95%": option_price_estimate_upper_bound, "Median 50%" : option_price_estimate_median, "Expected" : option_price_estimate_expected_value})
 
-		plt.plot(option_price_estimate_df['Lower Bound 5%'], label='Lower Bound 5%')
-		plt.plot(option_price_estimate_df['Median 50%'], label='Median')
-		plt.plot(option_price_estimate_df['Upper Bound 95%'], label='Upper Bound 95%')
-		plt.plot(option_price_estimate_df['Expected'], label='Expected')
-		plt.plot(option_price_estimate_df['Breakeven'], label='Breakeven')
-		plt.plot(option_price_estimate_df['Upper Bound 75%'], label='Upper Bound 75%')
-		plt.plot(option_price_estimate_df['Upper Bound 85%'], label='Upper Bound 85%')
-		plt.legend()
-		plt.show()
+			#plt.plot(option_price_estimate_df['Lower Bound 5%'], label='Lower Bound 5%')
+			#plt.plot(option_price_estimate_df['Median 50%'], label='Median')
+			#plt.plot(option_price_estimate_df['Upper Bound 95%'], label='Upper Bound 95%')
+			#plt.plot(option_price_estimate_df['Expected'], label='Expected')
+			#plt.plot(option_price_estimate_df['Breakeven'], label='Breakeven')
+			#plt.plot(option_price_estimate_df['Upper Bound 75%'], label='Upper Bound 75%')
+			#plt.plot(option_price_estimate_df['Upper Bound 85%'], label='Upper Bound 85%')
+			#plt.legend()
+			#plt.show()
 
-		option_price_dict[strike_price] = copy.deepcopy(option_price_estimate_df)
+			option_price_dict[strike_price] = copy.deepcopy(option_price_quantiles)
 
-		# If expected simulated value is greater than the price at time 0, it is smarter to buy the call option vs. sell
+			# If expected simulated value is greater than the price at time 0, it is smarter to buy the call option vs. sell
 
 	#plt.plot(option_price_dict[185]['Expected'], label='Expected 185')
 	#plt.plot(option_price_dict[190]['Expected'], label='Expected 190')
@@ -230,19 +236,46 @@ def main():
 	#plt.plot(option_price_dict[205]['Breakeven'], label='Breakeven 205')
 	#plt.legend()
 	#plt.show()
-
+	
 	# Calculate expected upside for different levels
 	upside = {}
 	x = []
-	y = []
+	lb_list = []
+	ub_list = []
+	strike_list_for_plotting = []
 	for s in strikes:
-		eb = (option_price_dict[s]['Expected'][samples-1] - option_price_dict[s]['Breakeven'][samples-1]) / option_price_dict[s]['Breakeven'][samples-1]
-		ub = (option_price_dict[s]['Upper Bound 85%'][samples-1] - option_price_dict[s]['Breakeven'][samples-1]) / option_price_dict[s]['Breakeven'][samples-1]
-		upside[s] = (eb, ub)
-		x.append(eb)
-		y.append(ub)
+		eb = (option_price_dict[s].loc['Expected', :])[samples-1] 
+		lb = (option_price_dict[s].loc[0.05, :])[samples-1]
+		ub = (option_price_dict[s].loc[0.95, :])[samples-1]
+		
+		strike_list_for_plotting.append(s) 
 
-	plt.plot(x, y)
-	plt.xlabel("Expected P/L %")
-	plt.ylabel("85% P/L %")
+		#upside[s] = (eb, ub)
+		x.append(eb)
+		#x.append(eb)
+		ub_list.append(ub)
+		lb_list.append(lb)
+
+	#plt.plot(x, lb_list)
+	#plt.plot(x, ub_list)
+
+	plt.scatter(x, lb_list)
+	#for i, txt in enumerate(strike_list_for_plotting):
+	#	ax.annotate(txt, (x[i], lb_list[i]))
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111, projection="3d")
+
+	ax.scatter(x, lb_list, ub_list, c='r', marker='o')
+	ax.set_xlabel("Expected Value At End")
+	ax.set_ylabel("Tail Risk 95%")
+	ax.set_zlabel("Spread Width")
+
+	plt.show()
+
+	#plt.scatter(x, ub_list)
+
+
+	plt.xlabel("Expected")
+	plt.ylabel("Upper/lower bound")
 	plt.show()

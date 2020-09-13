@@ -181,6 +181,9 @@ class Strategy:
 		
 		self.strategy_profit_loss = pd.DataFrame(data=profit_loss_dict)
 		self.strategy_profit_loss["total_profit_loss"] = self.strategy_profit_loss.apply(lambda row: self._get_profit_loss_sum_row(row), axis=1)
+
+		# The first value of profit_loss should be the cost of entering the position
+
 		return (self.strategy_profit_loss, option_leg_value_dict)
 	
 	def _get_profit_loss_sum_row(self, row):
@@ -225,7 +228,7 @@ class OptionLeg:
 				temp_initial_value = temp_option_price_object["value"]	
 
 			temp_option_price_object["initial_value"] = temp_initial_value
-			temp_option_price_object["profit_loss"] = temp_option_price_object["value"] - temp_option_price_object["initial_value"]
+			temp_option_price_object["profit_loss"] = (temp_option_price_object["value"] - temp_option_price_object["initial_value"])
 			self.simulated_price_data = self.simulated_price_data.append(temp_option_price_object, ignore_index=True)
 
 			#print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))

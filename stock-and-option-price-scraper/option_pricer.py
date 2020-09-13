@@ -36,6 +36,8 @@ import numpy as np
 import optionstrategypricingmodule
 import multiprocessing as mp
 
+STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
+
 underlying_price_time_series_value_list = []
 option_time_series_value_list = []
 total_profit_loss = []
@@ -58,8 +60,8 @@ def simulator_price_collector_callback(result):
 def main():
 	scenario_data = []
 	#strikes = [185]
-	strikes = [x for x in np.arange(205, 230, 2.5)]
-	spread_widths = [2.5, 5, 10]
+	strikes = [x for x in np.arange(185, 205, 2.5)]
+	spread_widths = [2.5, 5.0, 10.0]
 	stock_price_dict = {}
 	option_price_dict = {}
 
@@ -84,8 +86,8 @@ def main():
 			optionLegDict1["name"] = "leg_name2"
 			optionLegDict1["ticker"] = ticker
 			optionLegDict1["dividend_rate"] = dividend_rate
-			optionLegDict1["option"] = "Call"
-			optionLegDict1["position_type"] = "long"
+			optionLegDict1["option"] = "Put"
+			optionLegDict1["position_type"] = "short"
 			optionLegDict1["volatility"] = ""
 			optionLegDict1["strike_price"] = strike_price
 			optionLegDict1["maturity_date"] = maturity_date
@@ -97,10 +99,10 @@ def main():
 			optionLegDict2["name"] = "leg_name1"
 			optionLegDict2["ticker"] = ticker
 			optionLegDict2["dividend_rate"] = dividend_rate
-			optionLegDict2["option"] = "Call"
-			optionLegDict2["position_type"] = "short" 
+			optionLegDict2["option"] = "Put"
+			optionLegDict2["position_type"] = "long" 
 			optionLegDict2["volatility"] = ""
-			optionLegDict2["strike_price"] = strike_price + width
+			optionLegDict2["strike_price"] = strike_price - width
 			optionLegDict2["maturity_date"] = maturity_date
 			optionLegDict2["risk_free_rate"] = RISK_FREE_RATE
 			optionLegDict2["start_date"] = start_date
@@ -114,7 +116,7 @@ def main():
 			# Sample for the duration
 			samples = date_difference
 
-			s = optionstrategypricingmodule.StockPriceService()
+			s = optionstrategypricingmodule.StockPriceService(STOCK_DATA_PATH)
 			# TODO SUPPORT FOR MULTIPLE TICKERS IN KDE
 			s.make_kde(ticker)
 			s.get_sample_of_current_kde(10000)
@@ -224,6 +226,13 @@ def main():
 	#plt.legend()
 	#plt.show()
 
+	output_dict = {}
+
+	for k in option_price_dict.items():
+		output_dict[k] = option_price_dict[k].to_json()
+
+	with open("C:\\Users\\orent\\Documents\\testest.json", "w") as f:
+		json.dump(output_dict, f)
 	#plt.plot(option_price_dict[185]['Upper Bound 85%'], label='Upper Bound 185 85%')
 	#plt.plot(option_price_dict[190]['Upper Bound 85%'], label='Upper Bound 190 85%')
 	#plt.plot(option_price_dict[195]['Upper Bound 85%'], label='Upper Bound 195 85%')
@@ -236,6 +245,24 @@ def main():
 	#plt.plot(option_price_dict[205]['Breakeven'], label='Breakeven 205')
 	#plt.legend()
 	#plt.show()
+
+	fig = plt.figure()
+	ax = fig.add_subplot(111, projection="3d")
+
+	for k in option_price_dict.keys():
+		#eb = (option_price_dict[k].loc['Expected', :])[samples-1] 
+		#lb = (option_price_dict[k].loc[0.05, :])[samples-1]
+		#ub = (option_price_dict[k].loc[0.95, :])[samples-1]
+		#plt.scatter(option_price_dict[k].loc['Expected', :], option_price_dict[k].loc[0.05, :])
+		ax.scatter(option_price_dict[k].loc['Expected', :], option_price_dict[k].loc[0.05, :], option_price_dict[k].loc['Expected', :].index.to_list(), label=k)
+	
+	ax.set_xlabel("Expected Value At Time")
+	ax.set_ylabel("Tail Risk 95%")
+	ax.set_zlabel("Time to expiration")
+	ax.legend(loc="upper right")
+
+	plt.show()
+		
 	
 	# Calculate expected upside for different levels
 	upside = {}
@@ -246,9 +273,13 @@ def main():
 	spread_width = []
 
 	for k in option_price_dict.keys():
-		eb = (option_price_dict[k].loc['Expected', :])[samples-1] 
-		lb = (option_price_dict[k].loc[0.05, :])[samples-1]
-		ub = (option_price_dict[k].loc[0.95, :])[samples-1]
+		#eb = (option_price_dict[k].loc['Expected', :])[samples-1] 
+		#lb = (option_price_dict[k].loc[0.05, :])[samples-1]
+		#ub = (option_price_dict[k].loc[0.95, :])[samples-1]
+
+		eb = (option_price_dict[k].loc['Expected', :]) 
+		lb = (option_price_dict[k].loc[0.05, :])
+		ub = (option_price_dict[k].loc[0.95, :])
 		
 		strike_list_for_plotting.append(float(k.split("_")[0])) 
 
@@ -262,8 +293,12 @@ def main():
 
 	#plt.plot(x, lb_list)
 	#plt.plot(x, ub_list)
-
+	keys = [x for x in option_price_dict.keys()]
 	plt.scatter(x, lb_list)
+	for i in range(0, len(keys)):
+		plt.annotate(keys[i], (x[i], lb_list[i]))
+	plt.show()
+
 	#for i, txt in enumerate(strike_list_for_plotting):
 	#	ax.annotate(txt, (x[i], lb_list[i]))
 	output_data = {}

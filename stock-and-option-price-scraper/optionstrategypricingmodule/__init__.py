@@ -32,7 +32,6 @@ import math
 import numpy as np
 
 GREEKS_DECIMALS = 8
-STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
 
 def getSimulatedOptionPriceForOneIteration(ticker, stockPriceService, samples, optionLegsDict, current_spot_price):
 	# TODO: Add support for multi-leg options
@@ -234,8 +233,8 @@ class OptionLeg:
 			#print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))
 
 class StockPriceService:
-	def __init__(self):
-		with open(STOCK_DATA_PATH , "r") as f:
+	def __init__(self, data_path):
+		with open(data_path , "r") as f:
 			self.data = json.load(f)
 
 	def plot_histogram(self, ticker, include_current_kde_sample=False, include_normal_dist=False):

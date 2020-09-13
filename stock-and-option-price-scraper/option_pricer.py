@@ -36,8 +36,8 @@ import numpy as np
 import optionstrategypricingmodule
 import multiprocessing as mp
 
-STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
-#STOCK_DATA_PATH = "/home/orentola/stock-and-option-price-scraper/stock-and-option-price-scraper/stock_data/2020-09-13_04_39_one_time_run/data.json"
+#STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
+STOCK_DATA_PATH = "/home/orentola/stock-and-option-price-scraper/stock-and-option-price-scraper/stock_data/2020-09-13_04_39_one_time_run/data.json"
 
 underlying_price_time_series_value_list = []
 option_time_series_value_list = []
@@ -60,10 +60,10 @@ def simulator_price_collector_callback(result):
 
 def main():
 	scenario_data = []
-	#strikes = [185]
-	strikes = [x for x in np.arange(185, 187.5, 2.5)]
+	#strikes = [190]
+	strikes = [x for x in np.arange(180, 205, 2.5)]
 	#spread_widths = [2.5, 5.0, 10.0]
-	spread_widths = [2.5]
+	spread_widths = [2.5, 5, 10]
 	stock_price_dict = {}
 	option_price_dict = {}
 
@@ -77,7 +77,7 @@ def main():
 			dividend_rate = 0.0095
 			RISK_FREE_RATE = 0.008
 
-			manual_input_volatility = False
+			manual_input_volatility = True
 
 			start_date = "2020-05-01" # YYYY-MM-DD
 			maturity_date = "2020-06-10" # YYYY-MM-DD
@@ -90,7 +90,7 @@ def main():
 			optionLegDict1["dividend_rate"] = dividend_rate
 			optionLegDict1["option"] = "Put"
 			optionLegDict1["position_type"] = "short"
-			optionLegDict1["volatility"] = ""
+			optionLegDict1["volatility"] = 0.387
 			optionLegDict1["strike_price"] = strike_price
 			optionLegDict1["maturity_date"] = maturity_date
 			optionLegDict1["risk_free_rate"] = RISK_FREE_RATE
@@ -103,7 +103,7 @@ def main():
 			optionLegDict2["dividend_rate"] = dividend_rate
 			optionLegDict2["option"] = "Put"
 			optionLegDict2["position_type"] = "long" 
-			optionLegDict2["volatility"] = ""
+			optionLegDict2["volatility"] = 0.387 + 0.0125
 			optionLegDict2["strike_price"] = strike_price - width
 			optionLegDict2["maturity_date"] = maturity_date
 			optionLegDict2["risk_free_rate"] = RISK_FREE_RATE

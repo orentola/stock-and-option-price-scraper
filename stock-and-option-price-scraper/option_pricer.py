@@ -58,7 +58,7 @@ def simulator_price_collector_callback(result):
 def main():
 	scenario_data = []
 	#strikes = [185]
-	strikes = [x for x in np.arange(180, 185, 2.5)]
+	strikes = [x for x in np.arange(205, 230, 2.5)]
 	spread_widths = [2.5, 5, 10]
 	stock_price_dict = {}
 	option_price_dict = {}
@@ -84,8 +84,8 @@ def main():
 			optionLegDict1["name"] = "leg_name2"
 			optionLegDict1["ticker"] = ticker
 			optionLegDict1["dividend_rate"] = dividend_rate
-			optionLegDict1["option"] = "Put"
-			optionLegDict1["position_type"] = "short"
+			optionLegDict1["option"] = "Call"
+			optionLegDict1["position_type"] = "long"
 			optionLegDict1["volatility"] = ""
 			optionLegDict1["strike_price"] = strike_price
 			optionLegDict1["maturity_date"] = maturity_date
@@ -97,10 +97,10 @@ def main():
 			optionLegDict2["name"] = "leg_name1"
 			optionLegDict2["ticker"] = ticker
 			optionLegDict2["dividend_rate"] = dividend_rate
-			optionLegDict2["option"] = "Put"
-			optionLegDict2["position_type"] = "long" 
+			optionLegDict2["option"] = "Call"
+			optionLegDict2["position_type"] = "short" 
 			optionLegDict2["volatility"] = ""
-			optionLegDict2["strike_price"] = strike_price - width
+			optionLegDict2["strike_price"] = strike_price + width
 			optionLegDict2["maturity_date"] = maturity_date
 			optionLegDict2["risk_free_rate"] = RISK_FREE_RATE
 			optionLegDict2["start_date"] = start_date
@@ -192,7 +192,7 @@ def main():
 			#plt.legend()
 			#plt.show()
 		
-			stock_price_dict[strike_price] = copy.deepcopy(stock_price_estimate_df)
+			stock_price_dict[str(strike) + "_" + str(width)] = copy.deepcopy(stock_price_estimate_df)
 
 		
 			#option_price_estimate_df = pd.DataFrame(data={"Upper Bound 85%": option_price_estimate_upper_bound_85, "Upper Bound 75%": option_price_estimate_upper_bound_75, "Breakeven" : break_even_threshold_price_series, "Lower Bound 5%" : option_price_estimate_lower_bound, "Upper Bound 95%": option_price_estimate_upper_bound, "Median 50%" : option_price_estimate_median, "Expected" : option_price_estimate_expected_value})
@@ -207,7 +207,7 @@ def main():
 			#plt.legend()
 			#plt.show()
 
-			option_price_dict[strike_price] = copy.deepcopy(option_price_quantiles)
+			option_price_dict[str(strike) + "_" + str(width)] = copy.deepcopy(option_price_quantiles)
 
 			# If expected simulated value is greater than the price at time 0, it is smarter to buy the call option vs. sell
 
@@ -243,12 +243,16 @@ def main():
 	lb_list = []
 	ub_list = []
 	strike_list_for_plotting = []
-	for s in strikes:
-		eb = (option_price_dict[s].loc['Expected', :])[samples-1] 
-		lb = (option_price_dict[s].loc[0.05, :])[samples-1]
-		ub = (option_price_dict[s].loc[0.95, :])[samples-1]
+	spread_width = []
+
+	for k in option_price_dict.keys():
+		eb = (option_price_dict[k].loc['Expected', :])[samples-1] 
+		lb = (option_price_dict[k].loc[0.05, :])[samples-1]
+		ub = (option_price_dict[k].loc[0.95, :])[samples-1]
 		
-		strike_list_for_plotting.append(s) 
+		strike_list_for_plotting.append(float(k.split("_")[0])) 
+
+		spread_width.append(float(k.split("_")[1])) 
 
 		#upside[s] = (eb, ub)
 		x.append(eb)
@@ -262,11 +266,17 @@ def main():
 	plt.scatter(x, lb_list)
 	#for i, txt in enumerate(strike_list_for_plotting):
 	#	ax.annotate(txt, (x[i], lb_list[i]))
+	output_data = {}
+	output_data["x"] = x
+	output_data["lb_list"] = lb_list
+	output_data["ub_list"] = ub_list
+	output_data["spread_width"] = spread_width
+	output_df = pd.DataFrame(data=output_data)
 
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection="3d")
 
-	ax.scatter(x, lb_list, ub_list, c='r', marker='o')
+	ax.scatter(x, lb_list, spread_width, c='r', marker='o')
 	ax.set_xlabel("Expected Value At End")
 	ax.set_ylabel("Tail Risk 95%")
 	ax.set_zlabel("Spread Width")

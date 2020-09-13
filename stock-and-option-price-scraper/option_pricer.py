@@ -36,8 +36,8 @@ import numpy as np
 import optionstrategypricingmodule
 import multiprocessing as mp
 
-#STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
-STOCK_DATA_PATH = "/home/orentola/stock-and-option-price-scraper/stock-and-option-price-scraper/stock_data/2020-09-13_04_39_one_time_run/data.json"
+STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-09-11_21_44_one_time_run\\data.json"
+#STOCK_DATA_PATH = "/home/orentola/stock-and-option-price-scraper/stock-and-option-price-scraper/stock_data/2020-09-13_04_39_one_time_run/data.json"
 
 underlying_price_time_series_value_list = []
 option_time_series_value_list = []
@@ -61,8 +61,9 @@ def simulator_price_collector_callback(result):
 def main():
 	scenario_data = []
 	#strikes = [185]
-	strikes = [x for x in np.arange(185, 205, 2.5)]
-	spread_widths = [2.5, 5.0, 10.0]
+	strikes = [x for x in np.arange(185, 187.5, 2.5)]
+	#spread_widths = [2.5, 5.0, 10.0]
+	spread_widths = [2.5]
 	stock_price_dict = {}
 	option_price_dict = {}
 
@@ -229,11 +230,14 @@ def main():
 
 	output_dict = {}
 
-	for k in option_price_dict.items():
+	for k in option_price_dict.keys():
 		output_dict[k] = option_price_dict[k].to_json()
 
 	with open("C:\\Users\\orent\\Documents\\testest.json", "w") as f:
 		json.dump(output_dict, f)
+
+	with open("C:\\Users\\orent\\Documents\\dump.json", "r") as f:
+		data = json.load(f)
 	#plt.plot(option_price_dict[185]['Upper Bound 85%'], label='Upper Bound 185 85%')
 	#plt.plot(option_price_dict[190]['Upper Bound 85%'], label='Upper Bound 190 85%')
 	#plt.plot(option_price_dict[195]['Upper Bound 85%'], label='Upper Bound 195 85%')
@@ -250,21 +254,35 @@ def main():
 	fig = plt.figure()
 	ax = fig.add_subplot(111, projection="3d")
 
-	for k in option_price_dict.keys():
+	#for k in option_price_dict.keys():
+	for k in data.keys():
 		#eb = (option_price_dict[k].loc['Expected', :])[samples-1] 
 		#lb = (option_price_dict[k].loc[0.05, :])[samples-1]
 		#ub = (option_price_dict[k].loc[0.95, :])[samples-1]
 		#plt.scatter(option_price_dict[k].loc['Expected', :], option_price_dict[k].loc[0.05, :])
-		ax.scatter(option_price_dict[k].loc['Expected', :], option_price_dict[k].loc[0.05, :], option_price_dict[k].loc['Expected', :].index.to_list(), label=k)
+		#ax.scatter(option_price_dict[k].loc['Expected', :], option_price_dict[k].loc[0.05, :], option_price_dict[k].loc['Expected', :].index.to_list(), label=k)
+		#ax.scatter(pd.read_json(data[k]).loc['Expected', :], pd.read_json(data[k]).loc["0.05", :], pd.read_json(data[k]).loc['Expected', :].index.to_list(), label=k)
+		current_df = pd.read_json(data[k])
+		ax.scatter(current_df.loc['Expected', :], current_df.loc["0.05", :], (current_df.loc['Expected', :] / current_df.loc["0.05", :]).apply(abs), label=k)
 	
 	ax.set_xlabel("Expected Value At Time")
 	ax.set_ylabel("Tail Risk 95%")
-	ax.set_zlabel("Time to expiration")
+	#ax.set_zlabel("Time to expiration")
+	ax.set_zlabel("Expected value vs. tail risk, higher better")
 	ax.legend(loc="upper right")
 
 	plt.show()
-		
 	
+	for k in data.keys():
+		current_df = pd.read_json(data[k])
+		#plt.scatter(current_df.loc['Expected', :], (current_df.loc['Expected', :] / current_df.loc["0.05", :]).apply(abs), label=k)
+		plt.scatter(current_df.loc['Expected', :].mean(), (current_df.loc['Expected', :] / current_df.loc["0.05", :]).apply(abs).mean(), label=k)
+	plt.legend()
+	plt.xlabel("Expected")
+	plt.ylabel("Expected vs. Tail Risk, higher better for E>0")
+	plt.show()
+	
+
 	# Calculate expected upside for different levels
 	upside = {}
 	x = []

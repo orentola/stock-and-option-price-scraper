@@ -213,8 +213,8 @@ class OptionLeg:
 		print("Reseting the simulated_price_data dataframe.")
 		self.simulated_price_data.drop(self.simulated_price_data.index, inplace=True)
 		temp_initial_value = 0.0
-
-		# TODO: This should be optimized to not append data to df
+		temp_list_of_dicts = []
+		
 		for i in range(0, simulated_ticker_price.shape[0]):
 			# if return is None, we're done then TODO
 			# i = 0 houses the price at first step
@@ -227,7 +227,9 @@ class OptionLeg:
 
 			temp_option_price_object["initial_value"] = temp_initial_value
 			temp_option_price_object["profit_loss"] = (temp_option_price_object["value"] - temp_option_price_object["initial_value"])
-			self.simulated_price_data = self.simulated_price_data.append(temp_option_price_object, ignore_index=True)
+			temp_list_of_dicts.append(temp_option_price_object)
+		#self.simulated_price_data = self.simulated_price_data.append(temp_option_price_object, ignore_index=True)
+		self.simulated_price_data = pd.DataFrame(temp_list_of_dicts)
 
 			#print("Current iteration: " + str(i) + ", ticker price: " + str(simulated_ticker_price[i]) + ", current option price: " + str(temp_option_price_object["value"]))
 

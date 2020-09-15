@@ -50,7 +50,6 @@ JPM
 ANET
 SE
 AVGO
-
 #
 
 #SP500

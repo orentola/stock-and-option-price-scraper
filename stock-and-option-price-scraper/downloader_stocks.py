@@ -7,6 +7,7 @@ import json
 
 from json import JSONEncoder
 from datetime import datetime
+from datetime import timedelta
 from time import sleep
 from pathlib import Path
 
@@ -26,12 +27,15 @@ DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\"
 # right now implemented in a bad way
 RUN_ONCE = True
 
+# Defines which up to which date to download
+DATE_DELAY = -1
+
 def main():
 	print("Starting the run with ticker list: " + TICKER_LIST_NAME)
 	d = Downloader(TICKER_LIST_NAME)
 
 	start_dt = "2000-01-01"
-	end_dt = datetime.strftime(datetime.today(), "%Y-%m-%d")
+	end_dt = datetime.strftime(datetime.today() + timedelta(days=DATE_DELAY), "%Y-%m-%d")
 
 	print("Starting the loop for checking time and running all the steps...")
 	while True:

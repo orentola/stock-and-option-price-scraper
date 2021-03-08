@@ -105,7 +105,7 @@ class OptionLeg():
 		self.type = type
 		self.short_long = short_long
 		self.profit = 0.0
-		self.price_history = pd.DataFrame(index=pd.to_datetime([]), columns=['price', 'volatility', 'profit'])
+		self.price_history = pd.DataFrame(index=pd.to_datetime([]), columns=['price', 'volatility', 'value'])
 		self.date_purchased = date_purchased
 		self.price_at_start = None
 		self.active = True
@@ -123,12 +123,13 @@ class OptionLeg():
 		if self.price_at_start == None:
 			self.price_at_start = temp_option["value"]
 		
-		self.price_history.loc[date] = {'price' : temp_option["value"], 'volatility' : volatility, 'profit' : temp_option["value"] - self.price_at_start}
+		self.price_history.loc[date] = {'price' : temp_option["value"], 'volatility' : volatility, 'value' : temp_option["value"] - self.price_at_start}
+		self.total_profit = temp_option["value"] - self.price_at_start
 
 		if date == self.expiration_date:
 			self.ended_ITM = True if temp_option["value"] > 0.0 else False
 			self.active = False
-	
+			
 	def to_json(self):
 		output_dict = {}
 		output_dict["strike_price"] = self.strike_price
@@ -144,27 +145,27 @@ class OptionLeg():
 def main():
 	# Spread details
 
-	spread_short_distance = 0.10
-	spread_length = 5
-	spread_time_to_expiry = 45
+	spread_short_distance = 0.15 # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
+	spread_length = 10
+	spread_time_to_expiry = 60
 	
-	start_dt = '2000-05-26'
+	start_dt = '2020-01-01'
 	#end_dt = '2000-08-26'
-	end_dt = datetime.now().strftime("%Y-%m-%d")
-	threshold_timeframes = [10]
-	threshold_shift_abs = [0.03]
+	end_dt = datetime.datetime.now().strftime("%Y-%m-%d")
+	threshold_timeframes = [15] # Lookback period for triggering decision
+	threshold_shift_abs = [0.075] # How much the price needs to change in the threshold_timeframes timeframe
 
 	for tf in threshold_timeframes:
-		for s in threshold_shift_abs:
+		for sh in threshold_shift_abs:
 
 			s = optionstrategypricingmodule.StockPriceService(STOCK_DATA_PATH)
 			price_history = s.get_price_history("IWM")
 
 			price_history = price_history[start_dt : end_dt]
 
-			price_history['threshold_price'] = price_history['Close'].shift(threshold_timeframe)
+			price_history['threshold_price'] = price_history['Close'].shift(tf)
 			price_history['threshold_percentage_change'] = price_history.apply(lambda row : (row.Close - row.threshold_price) / row.threshold_price, axis=1)
-			price_history['action'] = price_history.apply(lambda row: "call" if row.threshold_percentage_change > threshold_shift_abs else ("put" if row.threshold_percentage_change < -1 * threshold_shift_abs else np.nan), axis=1 )
+			price_history['action'] = price_history.apply(lambda row: "call" if row.threshold_percentage_change > sh else ("put" if row.threshold_percentage_change < -1 * sh else np.nan), axis=1 )
 
 			price_history['previous_close'] = price_history['Close'].shift(1)
 			price_history['change_per_day'] = price_history.apply(lambda row: (row.Close - row.previous_close) / row.previous_close, axis = 1 )
@@ -173,15 +174,12 @@ def main():
 
 			option_legs = []
 			volatility_counter = 0
-
 			for index, row in price_history.iterrows():	
 				if volatility_counter < VOLATILITY_LOOKBACK_PERIOD-1:
 					volatility_counter = volatility_counter + 1
 					continue
-
 				if row.action == np.nan:
 					continue
-
 				current_date = index
 				if row.action == 'call':
 					option_legs.append(OptionLeg(row.Close * (1 + spread_short_distance), current_date + datetime.timedelta(days=spread_time_to_expiry), 'Call', 'short', current_date ))
@@ -195,14 +193,11 @@ def main():
 	
 			#rolling_volatility = pd.DataFrame(columns=["price"], index=pd.to_datetime([]))
 			rolling_volatility = pd.DataFrame(columns=["price_change"])
-
 			for index, row in price_history.iterrows():
 				rolling_volatility = rolling_volatility.append({"price_change" : row.change_per_day}, ignore_index=True)
-
 				if rolling_volatility.shape[0] < VOLATILITY_LOOKBACK_PERIOD:
 					# to ensure we can calculate volatility correctly
 					continue
-
 				for leg in option_legs:
 					if index < leg.date_purchased:
 						# the leg has not been purchased yet
@@ -212,14 +207,31 @@ def main():
 						continue
 					current_volatility = rolling_volatility.std()[0] * math.sqrt(252)
 					leg.update(index, row.Close, current_volatility, False)
-		
 				rolling_volatility.drop(0, inplace=True)
 				rolling_volatility.reset_index(drop=True, inplace=True)
 
 			# calculate profit loss per day
+
+			# TODO, THE LAST ROW IS NOT CALCULATED CORRECTLY
+			
 			profit_loss = pd.DataFrame(index=price_history.index)
-			profit_loss['profit'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
+			profit_loss['profit_only'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
+			profit_loss['value_only'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
 
 			for o in option_legs:
-				for index, row in o.price_history.iterrows():
-					profit_loss.loc[index] = { 'profit' : profit_loss.loc[index].profit + row.profit }
+				for i1, row in o.price_history[:-1].iterrows():
+					profit_loss.loc[i1].value_only = profit_loss.loc[i1].value_only + row.value
+				
+				# If expiration is in the future that is not part of the profit loss dataframe, let's skip and continue
+				if o.expiration_date >= profit_loss.index[profit_loss.index.shape[0]-1]:
+					continue
+
+				# Ensure the profit is added cumulatively from the expiration onwards
+				for i2, row in profit_loss[o.expiration_date:].iterrows():
+					try:
+						profit_loss.loc[i2].profit_only = profit_loss.loc[i2].profit_only + o.total_profit
+					except:
+						print("Exception caught.")
+			profit_loss["total_profit"] = profit_loss["profit_only"] + profit_loss["value_only"]
+			profit_loss["underlying_price"] = price_history["Close"]
+			profit_loss.to_csv("C:\\Users\\orent\\Documents\\test_output.csv")

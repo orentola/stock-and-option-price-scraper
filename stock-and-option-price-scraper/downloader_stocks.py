@@ -19,9 +19,11 @@ from stockmodule import DownloaderEncoder
 
 TICKERS_LIST = 'tickers.txt'
 #TICKER_LIST_NAME = 'SP500+SOFTWARE_TECH'
-TICKER_LIST_NAME = 'CUSTOM LIST'
+#TICKER_LIST_NAME = 'CUSTOM LIST'
+TICKER_LIST_NAME = 'CUSTOM LIST_1'
 #TICKER_LIST_NAME = 'TEST'
 DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\"
+#DATA_PATH = "/home/orentola/stock-and-option-price-scraper/stock-and-option-price-scraper/stock_data"
 
 # Fix this implementation for running this once, 
 # right now implemented in a bad way

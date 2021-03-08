@@ -294,3 +294,5 @@ class StockPriceService:
 		temp_stock = Stock.from_dict(self.data[ticker])
 		return temp_stock.get_last_close_price()
 
+	def get_price_history(self, ticker):
+		return Stock.from_dict(self.data[ticker]).stock_price_history

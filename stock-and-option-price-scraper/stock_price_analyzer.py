@@ -19,11 +19,11 @@ from statsmodels.graphics.gofplots import qqplot
 
 import numpy as np
 
-path = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-08-12_23_07_one_time_run\\data.json"
+path = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2020-10-14_08_42_one_time_run\\data.json"
 
 with open(path, "r") as f:
     data = json.load(f)
-s = Stock.from_dict(data['MSFT'])
+s = Stock.from_dict(data['CRWD'])
 
 stock_price_data = s.stock_price_history
 stock_price_data = stock_price_data[ ["Close"] ]

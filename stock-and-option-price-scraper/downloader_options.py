@@ -17,8 +17,8 @@ from stockmodule import StockEncoder
 from stockmodule import DownloaderEncoder
 
 TICKERS_LIST = 'tickers.txt'
-TICKER_LIST_NAME = 'SP500+SOFTWARE_TECH'
-#TICKER_LIST_NAME = 'CUSTOM LIST'
+#TICKER_LIST_NAME = 'SP500+SOFTWARE_TECH'
+TICKER_LIST_NAME = 'CUSTOM LIST'
 #TICKER_LIST_NAME = 'DEBUG'
 DATA_PATH = "C:\\Users\\orent\\Documents\\OptionsDataDownloader\\"
 

@@ -31,7 +31,11 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="optionstrategypricingmodule\__init__.py" />
+    <Compile Include="option_pricer_premium_selling_example.py" />
     <Compile Include="option_pricer.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="option_selling_strategy_tester.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="quantlibexample.py">

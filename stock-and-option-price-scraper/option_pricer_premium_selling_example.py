@@ -59,6 +59,11 @@ def simulator_price_collector_callback(result):
 	#print("Completed iteration: " + str(option_time_series_value.shape[0]))
 
 def main():
+	# TODO:
+	# - Sell call spreads when price has gone up X amount in the Y last days
+	# - Sell put spreads when ...
+	# - Parameters: number of days, % gain, lookahead period, lookahead %, strikes, spread width
+	
 	scenario_data = []
 	#strikes = [190]
 	#strikes = [x for x in np.arange(180, 205, 2.5)]

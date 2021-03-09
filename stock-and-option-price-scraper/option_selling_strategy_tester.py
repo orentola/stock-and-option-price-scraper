@@ -145,15 +145,15 @@ class OptionLeg():
 def main():
 	# Spread details
 
-	spread_short_distance = 0.15 # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
-	spread_length = 10
+	spread_short_distance = 0.10 # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
+	spread_length = 5
 	spread_time_to_expiry = 60
 	
-	start_dt = '2020-01-01'
+	start_dt = '2015-01-01'
 	#end_dt = '2000-08-26'
 	end_dt = datetime.datetime.now().strftime("%Y-%m-%d")
-	threshold_timeframes = [15] # Lookback period for triggering decision
-	threshold_shift_abs = [0.075] # How much the price needs to change in the threshold_timeframes timeframe
+	threshold_timeframes = [10] # Lookback period for triggering decision
+	threshold_shift_abs = [0.06] # How much the price needs to change in the threshold_timeframes timeframe
 
 	for tf in threshold_timeframes:
 		for sh in threshold_shift_abs:
@@ -172,6 +172,9 @@ def main():
 
 			#price_history.to_csv("C:\\Users\\orent\\Documents\\testdata.csv")
 
+			cash_requirements = pd.DataFrame(columns=['cash'], index=price_history.index)
+			cash_requirements['cash'] = [0.0 for x in range(0,cash_requirements.shape[0])]
+			
 			option_legs = []
 			volatility_counter = 0
 			for index, row in price_history.iterrows():	
@@ -182,12 +185,24 @@ def main():
 					continue
 				current_date = index
 				if row.action == 'call':
-					option_legs.append(OptionLeg(row.Close * (1 + spread_short_distance), current_date + datetime.timedelta(days=spread_time_to_expiry), 'Call', 'short', current_date ))
-					option_legs.append(OptionLeg(row.Close * (1 + spread_short_distance) + spread_length, current_date + datetime.timedelta(days=spread_time_to_expiry), 'Call', 'long', current_date ))
+					option_legs.append(OptionLeg(row.Close * (1 + spread_short_distance), current_date + datetime.timedelta(days=spread_time_to_expiry-1), 'Call', 'short', current_date ))
+					option_legs.append(OptionLeg(row.Close * (1 + spread_short_distance) + spread_length, current_date + datetime.timedelta(days=spread_time_to_expiry-1), 'Call', 'long', current_date ))
+					for i in range(0, spread_time_to_expiry):
+						try:
+							cash_requirements.loc[current_date + datetime.timedelta(days=i)] = cash_requirements.loc[current_date + datetime.timedelta(days=i)] + spread_length * 100
+						except KeyError:
+							continue
+							#print("This is probably a weekend, no panic")
+
 				elif row.action == 'put':
-					option_legs.append(OptionLeg(row.Close * (1 - spread_short_distance), current_date + datetime.timedelta(days=spread_time_to_expiry), 'Put', 'short', current_date ))
-					option_legs.append(OptionLeg(row.Close * (1 - spread_short_distance) - spread_length, current_date + datetime.timedelta(days=spread_time_to_expiry), 'Put', 'long', current_date ))
-	
+					option_legs.append(OptionLeg(row.Close * (1 - spread_short_distance), current_date + datetime.timedelta(days=spread_time_to_expiry-1), 'Put', 'short', current_date ))
+					option_legs.append(OptionLeg(row.Close * (1 - spread_short_distance) - spread_length, current_date + datetime.timedelta(days=spread_time_to_expiry-1), 'Put', 'long', current_date ))
+					for i in range(0, spread_time_to_expiry):
+						try:
+							cash_requirements.loc[current_date + datetime.timedelta(days=i)] = cash_requirements.loc[current_date + datetime.timedelta(days=i)] + spread_length * 100
+						except KeyError:
+							continue
+							#print("This is probably a weekend, no panic")			
 			# TODO:
 			# Validate the option leg list so it goes correctly
 	
@@ -235,3 +250,17 @@ def main():
 			profit_loss["total_profit"] = profit_loss["profit_only"] + profit_loss["value_only"]
 			profit_loss["underlying_price"] = price_history["Close"]
 			profit_loss.to_csv("C:\\Users\\orent\\Documents\\test_output.csv")
+			
+			total_profit_data = []
+			spread_identifier = 0
+			for o in option_legs:
+				if spread_identifier == 0:
+					temp_spread = o
+					spread_identifier = spread_identifier + 1
+					continue
+
+				profit_spread = o.total_profit + temp_spread.total_profit
+				total_profit_data.append(profit_spread)
+				spread_identifier = 0
+			total_profit_data_df = pd.DataFrame(total_profit_data, columns=["profit"])
+			total_profit_data_df["return"] = (total_profit_data_df["profit"] / spread_length) * 100

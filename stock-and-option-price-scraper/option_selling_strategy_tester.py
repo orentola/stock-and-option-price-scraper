@@ -181,146 +181,148 @@ def split_list(list, n):
 def main():
 	# Spread details
 	print("Starting the run at: " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-	spread_short_distances = [0.10] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
-	spread_length = 5
-	spread_time_to_expirys = [60]
+	spread_short_distances = [0.75, 0.10, 0.125, 0.15] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
+	spread_lengths = [5, 10, 20]
+	spread_time_to_expirys = [30, 60, 90, 120]
 	ticker = "SPY"
 
 	start_dt = '2000-01-01'
 	#end_dt = '2000-08-26'
 	end_dt = datetime.datetime.now().strftime("%Y-%m-%d")
-	threshold_timeframes = [5] # Lookback period for triggering decision
+	threshold_timeframes = [5, 10, 20] # Lookback period for triggering decision
 	#threshold_shift_abs = [0.03, 0.05, 0.07] # How much the price needs to change in the threshold_timeframes timeframe
-	threshold_shift_abs = [0.01] # How much the price needs to change in the threshold_timeframes timeframe
-	for stte in spread_time_to_expirys:
-		for ssd in spread_short_distances:
-			for tf in threshold_timeframes:
-				for sh in threshold_shift_abs:
+	threshold_shift_abs = [0.02, 0.04, 0.06, 0.08] # How much the price needs to change in the threshold_timeframes timeframe
+	for sl in spread_lengths:
+		for stte in spread_time_to_expirys:
+			for ssd in spread_short_distances:
+				for tf in threshold_timeframes:
+					for sh in threshold_shift_abs:
 
-					s = optionstrategypricingmodule.StockPriceService(STOCK_DATA_PATH)
-					price_history = s.get_price_history(ticker)
+						run_name = ticker + "_" + start_dt + "_" + str(tf) + "_" + str(sh) + "_" + str(ssd).replace('.','') + "_" + str(sl) + "_" + str(stte)
+						print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "		:" + "Currently running:" + run_name)
 
-					price_history = price_history[start_dt : end_dt]
+						s = optionstrategypricingmodule.StockPriceService(STOCK_DATA_PATH)
+						price_history = s.get_price_history(ticker)
 
-					price_history['threshold_price'] = price_history['Close'].shift(tf)
-					price_history['threshold_percentage_change'] = price_history.apply(lambda row : (row.Close - row.threshold_price) / row.threshold_price, axis=1)
-					price_history['action'] = price_history.apply(lambda row: "call" if row.threshold_percentage_change > sh else ("put" if row.threshold_percentage_change < -1 * sh else np.nan), axis=1 )
+						price_history = price_history[start_dt : end_dt]
 
-					price_history['previous_close'] = price_history['Close'].shift(1)
-					price_history['change_per_day'] = price_history.apply(lambda row: (row.Close - row.previous_close) / row.previous_close, axis = 1 )
-					price_history['volatility'] = price_history['change_per_day'].rolling(VOLATILITY_LOOKBACK_PERIOD).std() * math.sqrt(252)
-					#price_history.to_csv("C:\\Users\\orent\\Documents\\testdata.csv")
-					cash_requirements = pd.DataFrame(columns=['cash'], index=price_history.index)
-					cash_requirements['cash'] = [0.0 for x in range(0,cash_requirements.shape[0])]
+						price_history['threshold_price'] = price_history['Close'].shift(tf)
+						price_history['threshold_percentage_change'] = price_history.apply(lambda row : (row.Close - row.threshold_price) / row.threshold_price, axis=1)
+						price_history['action'] = price_history.apply(lambda row: "call" if row.threshold_percentage_change > sh else ("put" if row.threshold_percentage_change < -1 * sh else np.nan), axis=1 )
+
+						price_history['previous_close'] = price_history['Close'].shift(1)
+						price_history['change_per_day'] = price_history.apply(lambda row: (row.Close - row.previous_close) / row.previous_close, axis = 1 )
+						price_history['volatility'] = price_history['change_per_day'].rolling(VOLATILITY_LOOKBACK_PERIOD).std() * math.sqrt(252)
+						#price_history.to_csv("C:\\Users\\orent\\Documents\\testdata.csv")
+						cash_requirements = pd.DataFrame(columns=['cash'], index=price_history.index)
+						cash_requirements['cash'] = [0.0 for x in range(0,cash_requirements.shape[0])]
 					
-					option_legs = []
-					volatility_counter = 0
-					for index, row in price_history.iterrows():	
-						if volatility_counter < VOLATILITY_LOOKBACK_PERIOD-1:
-							volatility_counter = volatility_counter + 1
-							continue
-						if row.action == np.nan:
-							continue
-						current_date = index
-						if row.action == 'call':
-							option_legs.append(OptionLeg(row.Close * (1 + ssd), current_date + datetime.timedelta(days=stte-1), 'Call', 'short', current_date ))
-							option_legs.append(OptionLeg(row.Close * (1 + ssd) + spread_length, current_date + datetime.timedelta(days=stte-1), 'Call', 'long', current_date ))
-							for i in range(0, stte):
-								try:
-									cash_requirements.loc[current_date + datetime.timedelta(days=i)] = cash_requirements.loc[current_date + datetime.timedelta(days=i)] + spread_length * 100
-								except KeyError:
-									continue
-									#print("This is probably a weekend, no panic")
-						elif row.action == 'put':
-							option_legs.append(OptionLeg(row.Close * (1 - ssd), current_date + datetime.timedelta(days=stte-1), 'Put', 'short', current_date ))
-							option_legs.append(OptionLeg(row.Close * (1 - ssd) - spread_length, current_date + datetime.timedelta(days=stte-1), 'Put', 'long', current_date ))
-							for i in range(0, stte):
-								try:
-									cash_requirements.loc[current_date + datetime.timedelta(days=i)] = cash_requirements.loc[current_date + datetime.timedelta(days=i)] + spread_length * 100
-								except KeyError:
-									continue
-									#print("This is probably a weekend, no panic")			
-					# TODO:
-					# Validate the option leg list so it goes correctly
+						option_legs = []
+						volatility_counter = 0
+						for index, row in price_history.iterrows():	
+							if volatility_counter < VOLATILITY_LOOKBACK_PERIOD-1:
+								volatility_counter = volatility_counter + 1
+								continue
+							if row.action == np.nan:
+								continue
+							current_date = index
+							if row.action == 'call':
+								option_legs.append(OptionLeg(row.Close * (1 + ssd), current_date + datetime.timedelta(days=stte-1), 'Call', 'short', current_date ))
+								option_legs.append(OptionLeg(row.Close * (1 + ssd) + sl, current_date + datetime.timedelta(days=stte-1), 'Call', 'long', current_date ))
+								for i in range(0, stte):
+									try:
+										cash_requirements.loc[current_date + datetime.timedelta(days=i)] = cash_requirements.loc[current_date + datetime.timedelta(days=i)] + sl * 100
+									except KeyError:
+										continue
+										#print("This is probably a weekend, no panic")
+							elif row.action == 'put':
+								option_legs.append(OptionLeg(row.Close * (1 - ssd), current_date + datetime.timedelta(days=stte-1), 'Put', 'short', current_date ))
+								option_legs.append(OptionLeg(row.Close * (1 - ssd) - sl, current_date + datetime.timedelta(days=stte-1), 'Put', 'long', current_date ))
+								for i in range(0, stte):
+									try:
+										cash_requirements.loc[current_date + datetime.timedelta(days=i)] = cash_requirements.loc[current_date + datetime.timedelta(days=i)] + sl * 100
+									except KeyError:
+										continue
+										#print("This is probably a weekend, no panic")			
+						# TODO:
+						# Validate the option leg list so it goes correctly
 	
-					#rolling_volatility = pd.DataFrame(columns=["price"], index=pd.to_datetime([]))
-					rolling_volatility = pd.DataFrame(columns=["price_change"])
-					for index, row in price_history.iterrows():
-						rolling_volatility = rolling_volatility.append({"price_change" : row.change_per_day}, ignore_index=True)
-						if rolling_volatility.shape[0] < VOLATILITY_LOOKBACK_PERIOD:
-							# to ensure we can calculate volatility correctly
-							continue
-						for leg in option_legs:
-							if index < leg.date_purchased:
-								# the leg has not been purchased yet
+						#rolling_volatility = pd.DataFrame(columns=["price"], index=pd.to_datetime([]))
+						rolling_volatility = pd.DataFrame(columns=["price_change"])
+						for index, row in price_history.iterrows():
+							rolling_volatility = rolling_volatility.append({"price_change" : row.change_per_day}, ignore_index=True)
+							if rolling_volatility.shape[0] < VOLATILITY_LOOKBACK_PERIOD:
+								# to ensure we can calculate volatility correctly
 								continue
-							if index > leg.expiration_date:
-								# if we are past the expiration date
-								continue
-							current_volatility = rolling_volatility.std()[0] * math.sqrt(252)
-							leg.update(index, row.Close, current_volatility, False)
-						rolling_volatility.drop(0, inplace=True)
-						rolling_volatility.reset_index(drop=True, inplace=True)
+							for leg in option_legs:
+								if index < leg.date_purchased:
+									# the leg has not been purchased yet
+									continue
+								if index > leg.expiration_date:
+									# if we are past the expiration date
+									continue
+								current_volatility = rolling_volatility.std()[0] * math.sqrt(252)
+								leg.update(index, row.Close, current_volatility, False)
+							rolling_volatility.drop(0, inplace=True)
+							rolling_volatility.reset_index(drop=True, inplace=True)
 
-					# calculate profit loss per day
-			
-					run_name = ticker + "_" + start_dt + "_" + str(tf) + "_" + str(sh) + "_" + str(ssd).replace('.','') + "_" + str(spread_length) + "_" + str(stte)
+						# calculate profit loss per day
 
-					profit_loss = pd.DataFrame(index=price_history.index)
-					profit_loss['profit_only'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
-					profit_loss['value_only'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
+						profit_loss = pd.DataFrame(index=price_history.index)
+						profit_loss['profit_only'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
+						profit_loss['value_only'] = [0.0 for x in range(0, profit_loss.index.shape[0])]
 
-					if ENABLE_MULTIPROCESSING:
-						mp_start_dt = datetime.datetime.now()
-						num_of_cores = mp.cpu_count()-1
-						pool = mp.Pool(num_of_cores)
-						# Do all the tasks, join, and then sum everything up and order by index
-						option_sets = split_list(option_legs, num_of_cores)
-						#for i in range(0, min(num_of_cores, len(option_sets)):
-						for s in option_sets:
-							pool.apply_async(sum_values_from_date_onwards, args=(s, profit_loss.index), callback=sum_values_from_data_onwards_callback)
-						print("Trying to close the pool..")
-						pool.close()
-						pool.join()
-						mp_end_dt = datetime.datetime.now()
-						profit_loss = profit_loss_result
+						if ENABLE_MULTIPROCESSING:
+							mp_start_dt = datetime.datetime.now()
+							num_of_cores = mp.cpu_count()-1
+							pool = mp.Pool(num_of_cores)
+							# Do all the tasks, join, and then sum everything up and order by index
+							option_sets = split_list(option_legs, num_of_cores)
+							#for i in range(0, min(num_of_cores, len(option_sets)):
+							for s in option_sets:
+								pool.apply_async(sum_values_from_date_onwards, args=(s, profit_loss.index), callback=sum_values_from_data_onwards_callback)
+							print("Trying to close the pool..")
+							pool.close()
+							pool.join()
+							mp_end_dt = datetime.datetime.now()
+							profit_loss = profit_loss_result
 
-					else:
-						for o in option_legs:
-							#for i1, row in o.price_history[:-1].iterrows():
-							for i1, row in o.price_history.iterrows():
-								profit_loss.loc[i1].value_only = profit_loss.loc[i1].value_only + row.value
+						else:
+							for o in option_legs:
+								#for i1, row in o.price_history[:-1].iterrows():
+								for i1, row in o.price_history.iterrows():
+									profit_loss.loc[i1].value_only = profit_loss.loc[i1].value_only + row.value
 				
-							# If expiration is in the future that is not part of the profit loss dataframe, let's skip and continue
-							if o.expiration_date >= profit_loss.index[profit_loss.index.shape[0]-1]:
+								# If expiration is in the future that is not part of the profit loss dataframe, let's skip and continue
+								if o.expiration_date >= profit_loss.index[profit_loss.index.shape[0]-1]:
+									continue
+
+								# Ensure the profit is added cumulatively from the expiration onwards
+								for i2, row in profit_loss[o.expiration_date:].iterrows():
+									try:
+										profit_loss.loc[i2].profit_only = profit_loss.loc[i2].profit_only + o.total_profit
+									except:
+										print("Exception caught.")
+
+						profit_loss["total_profit"] = profit_loss["profit_only"] + profit_loss["value_only"]
+						profit_loss["underlying_price"] = price_history["Close"]
+					
+						profit_loss.to_csv(OUTPUT_PATH + "profit_loss_" + run_name + ".csv")
+			
+						total_profit_data = []
+						spread_identifier = 0
+						for o in option_legs:
+							if spread_identifier == 0:
+								temp_spread = o
+								spread_identifier = spread_identifier + 1
 								continue
 
-							# Ensure the profit is added cumulatively from the expiration onwards
-							for i2, row in profit_loss[o.expiration_date:].iterrows():
-								try:
-									profit_loss.loc[i2].profit_only = profit_loss.loc[i2].profit_only + o.total_profit
-								except:
-									print("Exception caught.")
-
-					profit_loss["total_profit"] = profit_loss["profit_only"] + profit_loss["value_only"]
-					profit_loss["underlying_price"] = price_history["Close"]
-					
-					profit_loss.to_csv(OUTPUT_PATH + "profit_loss_" + run_name + ".csv")
-			
-					total_profit_data = []
-					spread_identifier = 0
-					for o in option_legs:
-						if spread_identifier == 0:
-							temp_spread = o
-							spread_identifier = spread_identifier + 1
-							continue
-
-						profit_spread = o.total_profit + temp_spread.total_profit
-						total_profit_data.append(profit_spread)
-						spread_identifier = 0
-					total_profit_data_df = pd.DataFrame(total_profit_data, columns=["profit"])
-					total_profit_data_df["return"] = (total_profit_data_df["profit"] / spread_length) * 100
-					total_profit_data_df.to_csv(OUTPUT_PATH + "total_profit_run_" + run_name + ".csv")
+							profit_spread = o.total_profit + temp_spread.total_profit
+							total_profit_data.append(profit_spread)
+							spread_identifier = 0
+						total_profit_data_df = pd.DataFrame(total_profit_data, columns=["profit"])
+						total_profit_data_df["return"] = (total_profit_data_df["profit"] / sl) * 100
+						total_profit_data_df.to_csv(OUTPUT_PATH + "total_profit_run_" + run_name + ".csv")
 
 if __name__ == '__main__':
 	main()

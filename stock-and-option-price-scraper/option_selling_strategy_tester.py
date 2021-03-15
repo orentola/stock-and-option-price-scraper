@@ -177,15 +177,14 @@ def split_list(list, n):
 	n = max(1, n)
 	return (list[i:i+n] for i in range(0, len(list), n))
 
-
 def main():
 	# Spread details
 	print("Starting the run at: " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-	spread_short_distances = [0.75, 0.10, 0.125, 0.15] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
-	spread_lengths = [5, 10, 20]
+	spread_short_distances = [0.10, 0.15] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
+	spread_lengths = [5, 10, 20, 30]
 	spread_time_to_expirys = [30, 60, 90, 120]
 	ticker = "SPY"
-
+	run_name_generic = "SPY_testing_"
 	start_dt = '2000-01-01'
 	#end_dt = '2000-08-26'
 	end_dt = datetime.datetime.now().strftime("%Y-%m-%d")
@@ -198,8 +197,8 @@ def main():
 				for tf in threshold_timeframes:
 					for sh in threshold_shift_abs:
 
-						run_name = ticker + "_" + start_dt + "_" + str(tf) + "_" + str(sh) + "_" + str(ssd).replace('.','') + "_" + str(sl) + "_" + str(stte)
-						print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "		:" + "Currently running:" + run_name)
+						run_name = run_name_generic + "_" + ticker + "_" + start_dt + "_" + str(tf) + "_" + str(sh) + "_" + str(ssd) + "_" + str(sl) + "_" + str(stte)
+						print(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " - " + "Currently running: " + run_name)
 
 						s = optionstrategypricingmodule.StockPriceService(STOCK_DATA_PATH)
 						price_history = s.get_price_history(ticker)

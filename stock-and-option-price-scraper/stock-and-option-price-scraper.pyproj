@@ -24,6 +24,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="analyze_selling_data.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="downloader_stocks.py">
       <SubType>Code</SubType>
     </Compile>

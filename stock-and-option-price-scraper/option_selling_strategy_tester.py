@@ -116,6 +116,7 @@ class OptionLeg():
 		self.risk_free_rate = 0.015
 		self.ended_ITM = None
 		self.cash_requirement = None # Todo
+		self.total_profit = 0.0
 	
 	def update(self, date, price, volatility, add_skew=False):
 		# add_skew can be used to adjust the volatility skew

@@ -31,13 +31,13 @@ for p in profit_loss_paths:
 	c.append(temp_df_profit_loss["total_profit"].iloc[-1])
 
 	c.append(temp_df_total_profit.shape[0])
-	c.append(temp_df_total_profit.mean()["return"])
-	c.append(round(temp_df_total_profit.quantile(0.05)["return"], 2))
+	c.append(temp_df_total_profit.mean()["return"] / 100)
+	c.append(round(temp_df_total_profit.quantile(0.05)["return"] / 100, 2))
 
 	years_elapsed = ((datetime.datetime.now() - datetime.datetime.strptime(c[1], "%Y-%m-%d")).days / 365)
 	c.append(temp_df_total_profit.shape[0] / ((datetime.datetime.now() - datetime.datetime.strptime(c[1], "%Y-%m-%d")).days / 365))
 	
-	total_return_per_tied_capital = ((temp_df_profit_loss["total_profit"].iloc[-1] * 100) / (float(c[5]) * 100))
+	total_return_per_tied_capital = ((temp_df_profit_loss["total_profit"].iloc[-1] * 100) / (float(c[5]) * 100) / 100)
 	c.append(total_return_per_tied_capital)
 	c.append(total_return_per_tied_capital/years_elapsed)
 

@@ -11,7 +11,7 @@ import QuantLib as ql
 STOCK_DATA_PATH = "C:\\Users\\orent\\Documents\\StockDataDownloader\\2021-03-10_20_40_one_time_run\\data.json"
 VOLATILITY_LOOKBACK_PERIOD = 20
 OUTPUT_PATH = "C:\\Users\\orent\\Documents\\\SpreadStrategyResults\\"
-ENABLE_MULTIPROCESSING = True
+ENABLE_MULTIPROCESSING = False
 
 def get_option_price(optionLeg, current_date, spot_price, volatility=None):
 	# volatility = None => leads to usage of the volatility from the optionLeg parameter
@@ -119,20 +119,23 @@ class OptionLeg():
 		self.total_profit = 0.0
 	
 	def update(self, date, price, volatility, add_skew=False):
-		# add_skew can be used to adjust the volatility skew
-
 		# calculate the current price
-		temp_option = get_option_price(self, date, price, volatility)
 		
+		if (self.expiration_date == date):
+			#self.ended_ITM = True if self.price_history.iloc[-1]["value"] > 0.0 else False
+			self.active = False
+			return None
+
+		temp_option = get_option_price(self, date, price, volatility)
+
 		if self.price_at_start == None:
 			self.price_at_start = temp_option["value"]
 		
 		self.price_history.loc[date] = {'price' : temp_option["value"], 'volatility' : volatility, 'value' : temp_option["value"] - self.price_at_start}
 		self.total_profit = temp_option["value"] - self.price_at_start
 
-		if date == self.expiration_date:
-			self.ended_ITM = True if temp_option["value"] > 0.0 else False
-			self.active = False
+		# if calculated at expiration, the function to calculate the value provides a 0.0. hence we stop at the day before expiration. good enough approximation.
+
 			
 	def to_json(self):
 		output_dict = {}
@@ -181,17 +184,29 @@ def split_list(list, n):
 def main():
 	# Spread details
 	print("Starting the run at: " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-	spread_short_distances = [0.10, 0.15] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
-	spread_lengths = [5, 10, 20, 30]
-	spread_time_to_expirys = [30, 60, 90, 120]
+	
+	#spread_short_distances = [0.10, 0.15] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
+	#spread_lengths = [5, 10, 20, 30]
+	#spread_time_to_expirys = [30, 60, 90, 120]
+	
+	spread_short_distances = [0.10] # How many percentage points from the last value (e.g. 0.15 means 15% below for short put and 15% above call)
+	spread_lengths = [10]
+	spread_time_to_expirys = [120]
+
 	ticker = "SPY"
-	run_name_generic = "SPY_testing_"
+	#run_name_generic = "SPY_testing_"
+	run_name_generic = "Debug_run_"
+	
 	start_dt = '2000-01-01'
 	#end_dt = '2000-08-26'
 	end_dt = datetime.datetime.now().strftime("%Y-%m-%d")
-	threshold_timeframes = [5, 10, 20] # Lookback period for triggering decision
-	#threshold_shift_abs = [0.03, 0.05, 0.07] # How much the price needs to change in the threshold_timeframes timeframe
-	threshold_shift_abs = [0.02, 0.04, 0.06, 0.08] # How much the price needs to change in the threshold_timeframes timeframe
+	
+	#threshold_timeframes = [5, 10, 20] # Lookback period for triggering decision
+	#threshold_shift_abs = [0.02, 0.04, 0.06, 0.08] # How much the price needs to change in the threshold_timeframes timeframe
+
+	threshold_timeframes = [5] # Lookback period for triggering decision
+	threshold_shift_abs = [0.08] # How much the price needs to change in the threshold_timeframes timeframe
+
 	for sl in spread_lengths:
 		for stte in spread_time_to_expirys:
 			for ssd in spread_short_distances:
